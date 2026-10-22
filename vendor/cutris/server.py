@@ -63,7 +63,15 @@ for path in DATA.glob("*/manifest.json"):
         job = json.loads(path.read_text(encoding="utf-8"))
         if not re.fullmatch(r"[a-f0-9]{32}", job["id"]):
             continue
-        if job["status"] in {"running", "queued", "pausing"}:
+        if job["status"] == "stopping":
+            job["status"] = "stopped"
+            job["current"] = None
+            job["stage"] = "Queue stopped. Finished images are saved."
+            for item in job["items"]:
+                if item["status"] in {"running", "waiting"}:
+                    item["status"] = "cancelled"
+            persist(job)
+        elif job["status"] in {"running", "queued", "pausing"}:
             job["status"] = "paused"
             job["stage"] = "Interrupted by a restart. Resume to continue."
             for item in job["items"]:
@@ -175,6 +183,10 @@ def run_job(job_id):
         persist(job)
     for item in job["items"]:
         with LOCK:
+            if job["status"] in {"stopping", "stopped"}:
+                job.update(status="stopped", current=None, stage="Queue stopped. Finished images are saved.")
+                persist(job)
+                return
             if job["status"] == "pausing":
                 job["status"] = "paused"
                 job["stage"] = "Paused. Your completed images are saved."
@@ -189,9 +201,16 @@ def run_job(job_id):
         try:
             def progress(stage):
                 with LOCK:
-                    job["stage"] = stage
+                    if job["status"] != "stopping":
+                        job["stage"] = stage
             with Image.open(directory / "original.png") as image:
                 with PROCESSING_LOCK:
+                    with LOCK:
+                        if job["status"] == "stopping":
+                            item["status"] = "cancelled"
+                            job.update(status="stopped", current=None, stage="Queue stopped. Finished images are saved.")
+                            persist(job)
+                            return
                     result, notes = REMOVER.process(image.convert("RGBA"), job["quality"], job["mode"], progress)
             save_png(result, directory / "automatic.png")
             save_png(result, directory / "result.png")
@@ -205,11 +224,15 @@ def run_job(job_id):
             with LOCK:
                 item.update(status="error", error=public_error(exc, "The image could not be processed. Check the model installation, available memory, and source image, then retry."))
         with LOCK:
+            if job["status"] == "stopping":
+                job.update(status="stopped", current=None, stage="Queue stopped. Finished images are saved.")
+                persist(job)
+                return
             persist(job)
     with LOCK:
-        job["status"] = "complete"
+        job["status"] = "stopped" if job["status"] in {"stopping", "stopped"} else "complete"
         job["current"] = None
-        job["stage"] = "Batch finished. Review the edges before exporting."
+        job["stage"] = "Queue stopped. Finished images are saved." if job["status"] == "stopped" else "Batch finished. Review the edges before exporting."
         persist(job)
 
 
@@ -296,7 +319,7 @@ def create_job(files: list[UploadFile] = File(...), quality: str = Form("detail"
         raise HTTPException(400, "Unknown processing setting.")
     # One active batch avoids surprising concurrent memory and disk consumption.
     with LOCK:
-        if any(j["status"] in {"running", "queued", "pausing"} for j in JOBS.values()):
+        if any(j["status"] in {"running", "queued", "pausing", "stopping"} for j in JOBS.values()):
             raise HTTPException(409, "A batch is already processing. Pause it or wait until it finishes.")
         job_id = uuid.uuid4().hex
         directory = DATA / job_id
@@ -344,8 +367,17 @@ def control(job_id: str, action: str):
         job = get_job(job_id)
         if action == "pause" and job["status"] in {"queued", "running"}:
             job["status"] = "paused" if job["status"] == "queued" else "pausing"
-        elif action in {"resume", "retry"} and job["status"] in {"paused", "complete"}:
-            if any(j["status"] in {"queued", "running", "pausing"} for j in JOBS.values()):
+        elif action == "stop" and job["status"] in {"queued", "running", "pausing", "paused"}:
+            active = any(item["status"] == "running" for item in job["items"])
+            for item in job["items"]:
+                if item["status"] == "waiting":
+                    item["status"] = "cancelled"
+            job["status"] = "stopping" if active else "stopped"
+            job["stage"] = "Stopping. The current image may finish; remaining images are cancelled." if active else "Queue stopped. Finished images are saved."
+            if not active:
+                job["current"] = None
+        elif action in {"resume", "retry"} and job["status"] in {"paused", "complete", "stopped"} and not (action == "resume" and job["status"] == "stopped"):
+            if any(j["status"] in {"queued", "running", "pausing", "stopping"} for j in JOBS.values()):
                 raise HTTPException(409, "Another batch is processing.")
             if action == "retry":
                 for item in job["items"]:
@@ -471,7 +503,7 @@ def batch_preview(job_id: str, request: BatchGeometry):
 def batch_geometry(job_id: str, request: BatchGeometry):
     with LOCK:
         job = get_job(job_id)
-        if job["status"] not in {"complete", "paused"}:
+        if job["status"] not in {"complete", "paused", "stopped"}:
             raise HTTPException(409, "Pause the batch or wait for it to finish before changing images.")
         if len({target.id for target in request.items}) != len(request.items):
             raise HTTPException(400, "Select each image only once.")

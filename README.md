@@ -39,13 +39,15 @@ Each prompt waits for generation, downloads, and optional Cutris processing befo
 
 ## The full Cutris editor, inside gflowris
 
-Remove backgrounds locally, restore or erase details, and crop or resize the result. **Edit in Cutris** opens the complete editor in the same window. **Save & return** brings your changes back to the image gallery.
+[Cutris](https://github.com/nahidmrdl/cutris) is the background remover and editor built into gflowris. Remove backgrounds locally, restore or erase details, and crop or resize the result. **Edit in Cutris** opens the complete editor in the same window. **Save & return** brings your changes back to the image gallery.
 
 [![Crop, resize, and save in the embedded Cutris editor](docs/assets/cutris-editing.gif)](docs/assets/cutris-editing.mp4)
 
 [Watch editing demo](docs/assets/cutris-editing.mp4)
 
 Originals and earlier edits are preserved. Choose your output folder and auto-crop transparent space on export. Clearing the queue or image gallery keeps your saved files.
+
+For the standalone desktop app, CLI/API, and detailed editing guides, visit the [Cutris repository](https://github.com/nahidmrdl/cutris).
 
 ## Get started
 

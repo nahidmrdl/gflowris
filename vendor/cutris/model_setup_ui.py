@@ -57,7 +57,7 @@ def run_model_setup(qualities: Iterable[str] | None = None, *,
     for quality, spec in MODELS.items():
         value = tk.BooleanVar(window, value=quality in selected)
         variables[quality] = value
-        local = " · available locally" if available[quality] else ""
+        local = " — Installed" if available[quality] else " — Not installed"
         checkbox = ttk.Checkbutton(frame, variable=value,
                                    text=f"{spec.label} — {spec.size / 1_000_000:.0f} MB{local}")
         checkbox.pack(anchor="w", pady=5)

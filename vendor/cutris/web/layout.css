@@ -1,4 +1,18 @@
 /* Keep the working tools in view; the image takes the remaining space. */
+.header .brand { margin-right:auto; }
+.queue-control-row { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:8px 0; }
+.queue-control-row button { padding:8px 5px; font-size:11px; }
+.stop-queue { color:#9b5148; background:#fff5f2; border-color:#ebd7d1; }
+.status-dot.cancelled { background:#a5a1ac; }
+#modelsDialog { width:min(520px,calc(100vw - 32px)); }
+.model-dialog-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:20px; }
+.model-dialog-heading .hint { margin-top:8px; }
+.model-availability { display:grid; gap:10px; margin-bottom:18px; }
+.model-availability > div { display:flex; align-items:center; justify-content:space-between; padding:16px; background:#f6f4fa; border-radius:12px; gap:16px; }
+.model-availability span { font-size:12px; }
+.model-installed { color:#35744c; }
+.model-missing { color:#85808c; }
+.model-dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:22px; }
 .header { height:60px; min-height:60px; padding:0 18px; gap:12px; }
 .brand { font-size:20px; gap:9px; }
 .brand-icon { width:36px; height:36px; }

@@ -4,7 +4,7 @@ const batchState = {selected:new Set(), busy:false, timer:null, controller:null,
 
 function updateBatchTools() {
   $('batchTools').disabled = state.busy || state.dirty || !state.job
-    || !['paused','complete'].includes(state.job.status) || !state.job.items.some(item => item.status === 'done');
+    || !['paused','complete','stopped'].includes(state.job.status) || !state.job.items.some(item => item.status === 'done');
 }
 
 function batchTargets() {

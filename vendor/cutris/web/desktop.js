@@ -37,7 +37,7 @@ function syncDesktopState() {
   const report = desktopMethod('document_state');
   // pywebview creates api={} before it injects the callable methods.
   if (!report) return;
-  const processing = ['queued', 'running', 'pausing'].includes(state.job?.status);
+  const processing = ['queued', 'running', 'pausing', 'stopping'].includes(state.job?.status);
   try { Promise.resolve(report(state.dirty, processing)).catch(() => {}); } catch {}
 }
 
@@ -62,6 +62,24 @@ window.addEventListener('pywebviewready', connectDesktop);
 if (desktopMethod('document_state')) connectDesktop();
 
 $('modelsButton').onclick = safely(async () => {
+  if ($('modelsDialog').open) return;
+  const info = await api('/settings');
+  applyModelAvailability(info.models);
+  const ready = Object.values(info.models).filter(Boolean).length;
+  $('modelsSummary').textContent = ready === 2 ? 'Both AI models are installed and ready to use.' : ready ? 'One AI model is installed. You can add the other whenever you need it.' : 'Choose an AI model to download before removing backgrounds.';
+  $('modelAvailability').replaceChildren(...['detail','fast'].map(quality => {
+    const row = document.createElement('div'), name = document.createElement('strong'), status = document.createElement('span');
+    name.textContent = quality === 'detail' ? 'Maximum detail' : 'Faster';
+    status.textContent = info.models[quality] ? 'Installed' : 'Not installed';
+    status.className = info.models[quality] ? 'model-installed' : 'model-missing';
+    row.append(name, status); return row;
+  }));
+  $('modelsManage').textContent = ready === 2 ? 'Verify or repair models' : 'Download models';
+  if (!$('modelsDialog').open) $('modelsDialog').showModal();
+});
+for (const id of ['modelsClose','modelsDone']) $(id).onclick = () => $('modelsDialog').close();
+$('modelsManage').onclick = safely(async () => {
+  $('modelsDialog').close();
   $('modelsButton').disabled = true;
   notice('AI model setup is open in a separate window.');
   try {
