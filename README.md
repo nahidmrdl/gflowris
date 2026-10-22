@@ -16,7 +16,9 @@ Create batches of icons, product images, portraits, and artwork from your Google
 
 [![gflowris image workflow](docs/assets/workflow.gif)](docs/assets/desktop.mp4)
 
-[Watch desktop demo](docs/assets/desktop.mp4)
+[![Google Flow generation](docs/assets/flow-browser.gif)](docs/assets/flow-browser.mp4)
+
+[Desktop demo](docs/assets/desktop.mp4) | [Google Flow demo](docs/assets/flow-browser.mp4)
 
 ## Made for your image workflow
 
@@ -34,15 +36,6 @@ Add up to **25 prompts** with shared or individual settings. Choose the model, a
 Each prompt waits for generation, downloads, and optional Cutris processing before the next begins. Pause after the active prompt or cancel the remaining queue. Drafts are saved between sessions.
 
 ![Prompt queue with individual settings](docs/assets/queue.png)
-
-<details>
-<summary>See generation in Google Flow</summary>
-
-![Google Flow generation](docs/assets/flow-browser.gif)
-
-[Watch Google Flow demo](docs/assets/flow-browser.mp4)
-
-</details>
 
 ## The full Cutris editor, inside gflowris
 
