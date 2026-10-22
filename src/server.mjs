@@ -321,7 +321,7 @@ const server=http.createServer(async(req,res)=>{
     }
     if(req.method!=='GET'){reply(res,405,{error:'Method not allowed.'});return;}
     const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
-    if(!['index.html','app.js','queue-ui.js','prompt-input.js','style.css','assets/app-256.png','assets/favicon.ico'].includes(name)){reply(res,404,{error:'Not found.'});return;}
+    if(!['index.html','app.js','queue-ui.js','prompt-input.js','prompt-help.js','style.css','assets/app-256.png','assets/favicon.ico'].includes(name)){reply(res,404,{error:'Not found.'});return;}
     const scripts=url.searchParams.get('desktop')==='1'?"'self' 'unsafe-eval'":"'self'";
     res.writeHead(200,{'Content-Type':mime[path.extname(name)],'Cache-Control':'no-store','Content-Security-Policy':`default-src 'self'; script-src ${scripts}; style-src 'self'; connect-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'`,'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'});
     res.end(await fs.readFile(path.join(root,'public',name)));

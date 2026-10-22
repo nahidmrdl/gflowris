@@ -1,4 +1,5 @@
 import {createQueueWorkspace} from './queue-ui.js';
+import {initPromptHelp} from './prompt-help.js';
 const $=selector=>document.querySelector(selector);
 const key=new URLSearchParams(location.hash.slice(1)).get('key');
 if(key){sessionStorage.setItem('flow-key',key);history.replaceState(null,'',location.pathname+location.search);}
@@ -161,6 +162,7 @@ async function checkCutris(){
   catch(error){$('#cutris-connection-state').textContent='Check setup';$('#cutris-status').textContent=error.message;}
 }
 async function openCutris(){try{if(!window.pywebview?.api?.open_cutris)throw new Error('Reopen the desktop workspace to load the Cutris settings action.');const response=await window.pywebview.api.open_cutris();if(!response.ok)throw new Error(response.error);if(response.url)location.assign(response.url);}catch(error){message(error.message,true);}}
+initPromptHelp();
 for(const button of document.querySelectorAll('[data-close]'))button.onclick=()=>$('#'+button.dataset.close).close();
 for(const button of document.querySelectorAll('[data-settings-tab]'))button.onclick=()=>showSettings(button.dataset.settingsTab);
 $('#workspace-settings').onclick=()=>showSettings();$('#processing-options').onclick=()=>showSettings('processing');$('#connection-help').onclick=()=>showSettings('connection');$('#extension-setup').onclick=()=>showSettings('connection');$('#cutris-connection').onclick=()=>{showSettings('connection');checkCutris();};

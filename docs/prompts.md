@@ -2,6 +2,8 @@
 
 The queue holds up to 25 prompt cards. Each card captures its settings when added. Changing the composer does not change existing cards. **Apply settings** copies checked settings to selected cards or the whole queue.
 
+Choose the **?** beside Prompt for copyable examples of one prompt, shared or individual settings, and multiple JSON blocks. **Copy AI instructions** provides a brief you can give your AI, including the choices available in your connected Flow project. Use **JSON** mode or **Import JSON** to turn its response into queue cards.
+
 ## Single prompt
 
 Write your full prompt, including paragraphs, and choose **Add to queue**. **Edit** loads a card back into the composer; **Save prompt** updates that card.
