@@ -9,7 +9,7 @@ on:
         required: true
         default: '1.0.0'
       release_notes:
-        description: 'Release notes: separate each bullet with a semicolon'
+        description: 'Changes: separate bullets with semicolons. Setup and usage are added automatically.'
         type: string
         required: true
 permissions: {}

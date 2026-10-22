@@ -9,6 +9,8 @@ Open **Actions → Release gflowris → Run workflow** on `main`.
 
 Each semicolon starts a bullet; empty entries are ignored. Use three numbers without `v`. The workflow adds the tag prefix. Renaming a downloaded file does not change the app version.
 
+Enter only the changes for that version. Every release automatically includes download descriptions, setup instructions, a usage guide, update steps, and links to the full documentation.
+
 ## Build and publish
 
 The workflow validates inputs and rejects existing versions, applies the version to package files/extension/executable/installer, audits publishable sources, and builds the runtime and Cutris wheel. It runs only when manually started. It does not run tests, sign into Google, or download AI models.
