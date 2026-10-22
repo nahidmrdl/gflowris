@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix folder opening and browsing in the workspace and embedded Cutris editor, with visible errors instead of silent failures.
 - Stop background helpers during updates and uninstall to release locked files.
 - Protect open edits and active queues during setup; keep the Chrome extension installed.
 

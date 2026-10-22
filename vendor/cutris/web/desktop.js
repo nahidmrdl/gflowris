@@ -32,6 +32,12 @@ async function desktopAction(name, ...args) {
   return method(...args);
 }
 
+async function nativeFolderAction(name, ...args) {
+  const result = await desktopAction(name, ...args);
+  if (!result || result.ok === false) throw new Error(result?.error || 'The folder action could not finish. Reopen the desktop app and try again.');
+  return result;
+}
+
 function syncDesktopState() {
   if (window.leavingWorkspace) return;
   const report = desktopMethod('document_state');
@@ -88,7 +94,11 @@ $('modelsManage').onclick = safely(async () => {
     notice(result.message || (result.ok ? 'AI models are ready. Processing stays offline.' : 'Model setup was cancelled. Previously installed models are still available.'));
   } finally { $('modelsButton').disabled = false; }
 });
-$('savedWorkButton').onclick = safely(async () => { await desktopAction('open_saved_work'); });
+$('savedWorkButton').onclick = safely(async () => {
+  const button = $('savedWorkButton'); button.disabled = true;
+  try { await nativeFolderAction('open_saved_work'); notice('Opened your saved work folder.'); }
+  finally { button.disabled = false; }
+});
 $('aboutButton').onclick = safely(async () => {
   const info = await api('/about');
   applyBranding(info);

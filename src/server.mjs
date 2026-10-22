@@ -4,7 +4,6 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {spawn} from 'node:child_process';
 import {ImageQueue,parsePrompts} from './jobs.mjs';
 import {saveDownload} from './downloads.mjs';
 import {matchFlowDownload} from './download-match.mjs';
@@ -14,6 +13,7 @@ import {stateRoot} from './paths.mjs';
 import {DEFAULT_PREFERENCES,validatePreferences} from './preferences.mjs';
 import {defaultOutputFolder,prepareOutputFolder,displayOutputFolder} from './output-folder.mjs';
 import {extensionInfo} from './extension-setup.mjs';
+import {openWindowsFolder,chooseWindowsFolder} from './windows-folders.mjs';
 import {DraftQueue} from './draft-queue.mjs';
 import {cancellable,cancellationError,checkCancellation} from './cancellation.mjs';
 
@@ -318,13 +318,10 @@ const server=http.createServer(async(req,res)=>{
         reply(res,200,saved);return;
       }
       if(url.pathname==='/api/browse'&&req.method==='POST'){
-        const script="Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description = 'Choose where Flow images are saved'; if ($dialog.ShowDialog() -eq 'OK') { [Console]::Write($dialog.SelectedPath) }";
-        const child=spawn('powershell.exe',['-NoProfile','-STA','-WindowStyle','Hidden','-Command',script],{windowsHide:true});
-        let output='';child.stdout.on('data',d=>output+=d);child.on('error',()=>reply(res,500,{error:'Enter the folder path manually.'}));
-        child.on('close',()=>reply(res,200,{folder:output.trim()}));return;
+        reply(res,200,await chooseWindowsFolder(settings.outputFolder));return;
       }
       if(url.pathname==='/api/open-folder'&&req.method==='POST'){
-        await fs.mkdir(settings.outputFolder,{recursive:true});spawn('explorer.exe',[settings.outputFolder],{detached:true,stdio:'ignore',windowsHide:true}).unref();reply(res,200,{ok:true});return;
+        reply(res,200,await openWindowsFolder(settings.outputFolder));return;
       }
       reply(res,404,{error:'Unknown API endpoint.'});return;
     }

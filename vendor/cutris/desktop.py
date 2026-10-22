@@ -117,12 +117,13 @@ class DesktopApi:
             self._window.show()
         return result
 
-    def choose_output_folder(self):
-        if not self._window:
-            return {"folder": None}
-        import webview
-        selected = self._window.create_file_dialog(webview.FileDialog.FOLDER)
-        return {"folder": selected[0] if selected else None}
+    def choose_output_folder(self, initial_folder=None):
+        from cutris.folders import choose_folder
+        from cutris.settings import SettingsStore
+        try:
+            return choose_folder(self._window, initial_folder or SettingsStore().get()["output_folder"])
+        except (OSError, ValueError, RuntimeError) as error:
+            return {"ok": False, "error": str(error)}
 
     def integration_context(self):
         return {"workspace": "gflowris" if self._workspace_return else None}
@@ -132,14 +133,13 @@ class DesktopApi:
             return self._workspace_return(project_id)
         return {"ok": False, "error": "This is the standalone Cutris app."}
 
-    def open_output_folder(self):
+    def open_output_folder(self, folder=None):
+        from cutris.folders import open_folder
         from cutris.settings import SettingsStore
-        folder = SettingsStore().get()["output_folder"]
-        if folder and sys.platform == "win32":
-            Path(folder).mkdir(parents=True, exist_ok=True)
-            os.startfile(folder)
-            return True
-        return False
+        try:
+            return open_folder(SettingsStore().get()["output_folder"] if folder is None else folder)
+        except (OSError, ValueError, RuntimeError) as error:
+            return {"ok": False, "error": str(error)}
 
     def document_state(self, dirty: bool, processing: bool) -> None:
         if self._window:
@@ -165,11 +165,12 @@ class DesktopApi:
         finally:
             self._model_lock.release()
 
-    def open_saved_work(self) -> bool:
-        if sys.platform == "win32":
-            os.startfile(str(DATA_DIR))
-            return True
-        return False
+    def open_saved_work(self):
+        from cutris.folders import open_folder
+        try:
+            return open_folder(DATA_DIR)
+        except (OSError, ValueError, RuntimeError) as error:
+            return {"ok": False, "error": str(error)}
 
 
 def show_message(message: str, *, error: bool = False) -> None:

@@ -116,13 +116,37 @@ class DesktopBridge:
         if self._api:
             self._api.document_state(dirty,processing)
 
-    def choose_output_folder(self):
+    def choose_output_folder(self, initial_folder=None):
         self._ensure_service()
-        return self._api.choose_output_folder()
+        return self._api.choose_output_folder(initial_folder)
 
-    def open_output_folder(self):
+    def open_output_folder(self, folder=None):
         self._ensure_service()
-        return self._api.open_output_folder()
+        return self._api.open_output_folder(folder)
+
+    def _workspace_output_folder(self):
+        control = self._control()
+        request = urllib.request.Request(control['origin']+'/api/state', headers={'Authorization':'Bearer '+control['token']})
+        with urllib.request.urlopen(request, timeout=5) as response:
+            state = json.load(response)
+        folder = state['settings']['outputFolder']
+        if not isinstance(folder, str) or not Path(folder).is_absolute():
+            raise ValueError('Choose an output folder in workspace settings.')
+        return folder
+
+    def choose_workspace_output_folder(self):
+        try:
+            self._ensure_service()
+            return self._api.choose_output_folder(self._workspace_output_folder())
+        except Exception:
+            return {'ok':False,'error':'The workspace folder picker could not open. Reopen gflowris and try again.'}
+
+    def open_workspace_output_folder(self):
+        try:
+            self._ensure_service()
+            return self._api.open_output_folder(self._workspace_output_folder())
+        except Exception:
+            return {'ok':False,'error':'The workspace folder could not open. Check your output folder or reopen gflowris.'}
 
     def open_saved_work(self):
         self._ensure_service()

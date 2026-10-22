@@ -50,9 +50,22 @@ $('appSettingsButton').onclick = safely(async () => {
 });
 for (const button of document.querySelectorAll('[data-settings-tab]')) button.onclick = () => settingsTab(button.dataset.settingsTab);
 for (const id of ['settingsClose', 'settingsCancel']) $(id).onclick = () => $('appSettingsDialog').close();
-$('prefBrowse').onclick = safely(async () => {const result = await desktopAction('choose_output_folder'); if (result.folder) $('prefOutputFolder').value = result.folder;});
-$('prefOpenFolder').onclick = safely(async () => {if (settingsInfo.preferences.output_folder) await desktopAction('open_output_folder'); else $('settingsStatus').textContent = 'Save an export folder first.';});
-$('prefAskFolder').onclick = () => $('prefOutputFolder').value = '';
+async function settingsFolderAction(buttonId, action) {
+  const button = $(buttonId); button.disabled = true; $('settingsStatus').textContent = '';
+  try { await action(); }
+  catch (error) { $('settingsStatus').textContent = error.message; }
+  finally { button.disabled = false; }
+}
+$('prefBrowse').onclick = () => settingsFolderAction('prefBrowse', async () => {
+  const result = await nativeFolderAction('choose_output_folder', $('prefOutputFolder').value.trim());
+  if (result.folder) { $('prefOutputFolder').value = result.folder; $('settingsStatus').textContent = 'Folder selected. Save settings to use it for exports.'; }
+});
+$('prefOpenFolder').onclick = () => settingsFolderAction('prefOpenFolder', async () => {
+  const folder = $('prefOutputFolder').value.trim();
+  if (!folder) throw new Error('Choose an export folder first.');
+  await nativeFolderAction('open_output_folder', folder); $('settingsStatus').textContent = 'Opened the selected folder.';
+});
+$('prefAskFolder').onclick = () => { $('prefOutputFolder').value = ''; $('settingsStatus').textContent = 'Save settings to use the default download location.'; };
 $('settingsModelSetup').onclick = () => $('modelsButton').click();
 $('copyApiAddress').onclick = safely(async () => {await navigator.clipboard.writeText(settingsInfo.integration.origin); $('settingsStatus').textContent = 'API address copied.';});
 $('copyApiKey').onclick = safely(async () => {const result = await api('/integration/key'); await navigator.clipboard.writeText(result.key); $('settingsStatus').textContent = 'API key copied. Keep it private.';});

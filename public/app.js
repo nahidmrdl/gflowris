@@ -190,8 +190,25 @@ for(const kind of ['quality','mode'])$('#settings-cutris-'+kind).onchange=()=>{$
 
 $('#output').oninput=()=>$('#output').dataset.edited='true';
 $('#output').onchange=async()=>{try{await api('settings',{outputFolder:$('#output').value});delete $('#output').dataset.edited;}catch(error){message(error.message,true);}};
-async function browse(){try{const result=await api('browse',{});if(result.folder){await api('settings',{outputFolder:result.folder});await update();$('#settings-output').textContent=$('#output').value;}}catch(error){message(error.message,true);}}
-$('#browse').onclick=browse;$('#settings-browse').onclick=browse;$('#open-folder').onclick=()=>api('open-folder',{}).catch(error=>message(error.message,true));
+function folderMessage(text,error=false){message(text,error);$('#settings-folder-status').textContent=text;$('#settings-folder-status').dataset.tone=error?'error':'normal';}
+async function folderAction(nativeName,route){
+  const bridge=window.pywebview?.api;
+  const result=typeof bridge?.[nativeName]==='function'?await bridge[nativeName]():await api(route,{});
+  if(!result||result.ok===false)throw new Error(result?.error||'The folder action could not finish. Reopen gflowris and try again.');
+  return result;
+}
+async function browse(){
+  if($('#browse').disabled||$('#settings-browse').disabled)return;
+  $('#browse').disabled=true;$('#settings-browse').disabled=true;folderMessage('Choose an output folder…');
+  try{const result=await folderAction('choose_workspace_output_folder','browse');if(result.folder){await api('settings',{outputFolder:result.folder});await update();$('#settings-output').textContent=$('#output').value;folderMessage('Output folder updated.');}else folderMessage('Folder selection cancelled.');}
+  catch(error){folderMessage(error.message,true);}finally{$('#browse').disabled=false;$('#settings-browse').disabled=false;}
+}
+$('#browse').onclick=browse;$('#settings-browse').onclick=browse;
+$('#open-folder').onclick=async()=>{
+  const button=$('#open-folder');button.disabled=true;button.textContent='Opening…';
+  try{await folderAction('open_workspace_output_folder','open-folder');folderMessage('Opened the output folder.');}
+  catch(error){folderMessage(error.message,true);}finally{button.disabled=false;button.textContent='Open folder';}
+};
 $('#inspect').onclick=async()=>{try{$('#inspect').disabled=true;message('Checking the settings available in Flow…');await api('discover',{});capabilityKey='';await update();message('Flow settings refreshed.');}catch(error){message(error.message,true);}finally{$('#inspect').disabled=false;}};
 async function runDraft(items){
   if(active())return;
@@ -225,6 +242,10 @@ $('#preview-edit').onclick=()=>{const item=state.queue.items.find(value=>value.i
 $('#history-open').onclick=async()=>{try{const history=await api('history');$('#history-list').replaceChildren();for(const item of history.items){const button=element('button','recent-queue'),text=element('div');text.append(element('strong','',item.prompt),element('small','',new Date(item.created).toLocaleString()+' ('+item.count+' images)'));button.append(text,element('span','',item.status));button.onclick=async()=>{try{await api('history/select',{id:item.id});selected.clear();releasePreviews();$('#history-dialog').close();jobsKey='';await update();workspace.showTab('images');}catch(error){message(error.message,true);}};$('#history-list').append(button);}if(!history.items.length)$('#history-list').append(element('p','','Your completed queues will appear here.'));$('#history-dialog').showModal();}catch(error){message(error.message,true);}};
 function releasePreviews(){for(const url of previews.values())URL.revokeObjectURL(url);previews.clear();preview=null;}
 $('#clear-images').onclick=async()=>{try{await api('queue/clear',{});selected.clear();selecting=false;releasePreviews();$('#preview-dialog').close();jobsKey='';await update();message('Images cleared from this view. Your files and recent queues are kept.');}catch(error){message(error.message,true);}};
-$('#settings-default-folder').onclick=async()=>{try{const value=await api('output/default');await api('settings',{outputFolder:value.folder});delete $('#output').dataset.edited;await update();$('#settings-output').textContent=$('#output').value;message('Default output folder selected. It will be created when needed.');}catch(error){message(error.message,true);}};
+$('#settings-default-folder').onclick=async()=>{
+  const button=$('#settings-default-folder');button.disabled=true;
+  try{const value=await api('output/default');await api('settings',{outputFolder:value.folder});delete $('#output').dataset.edited;await update();$('#settings-output').textContent=$('#output').value;folderMessage('Default output folder selected. It will be created when needed.');}
+  catch(error){folderMessage(error.message,true);}finally{button.disabled=false;}
+};
 workspace=createQueueWorkspace({api,getValues:defaults,setValues:setComposerValues,notice:message,isActive:active,saveComposer:scheduleSave,onRun:runDraft,onChange:runControls});
 update().then(checkCutris);setInterval(update,1800);
