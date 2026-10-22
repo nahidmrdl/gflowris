@@ -1,0 +1,150 @@
+name: Release gflowris
+run-name: Release gflowris ${{ inputs.version }}
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without v (for example 1.0.0)'
+        type: string
+        required: true
+        default: '1.0.0'
+      release_notes:
+        description: 'Release notes: separate each bullet with a semicolon'
+        type: string
+        required: true
+permissions: {}
+concurrency:
+  group: gflowris-release
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Build Windows release
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Validate release request
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            if (context.ref !== `refs/heads/${context.payload.repository.default_branch}`) throw new Error('Run releases from the default branch.');
+            const {version,release_notes:notes} = context.payload.inputs;
+            if (!/^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$/.test(version) || version.split('.').some(n=>Number(n)>65535)) throw new Error('Use a version such as 1.0.0, without v.');
+            if (!notes || notes.length>20000 || !notes.split(';').some(n=>n.trim())) throw new Error('Enter semicolon-separated release notes.');
+            const tag=`v${version}`;
+            try { await github.rest.git.getRef({...context.repo,ref:`tags/${tag}`}); throw new Error('That version tag already exists.'); }
+            catch(error) { if(error.status!==404) throw error; }
+            const releases=await github.paginate(github.rest.repos.listReleases,{...context.repo,per_page:100});
+            if(releases.some(r=>r.tag_name===tag)) throw new Error('That release already exists. Inspect any failed draft before retrying.');
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          architecture: x64
+          cache: pip
+          cache-dependency-path: |
+            requirements-build.txt
+            vendor/cutris/requirements.txt
+      - name: Prepare version and bullet notes
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: python -B scripts/prepare_release.py
+      - run: python -B scripts/audit_source.py
+      - run: python -m pip install -r requirements-build.txt
+      - name: Locate Inno Setup
+        run: |
+          $compiler=Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if(-not (Test-Path -LiteralPath $compiler)){throw 'The Windows runner must include Inno Setup 6.'}
+          "ISCC=$compiler" >> $env:GITHUB_ENV
+      - name: Build installer and portable app
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -B scripts/build.py --installer --iscc "$env:ISCC"
+      - name: Upload verified release files
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: gflowris-release-${{ inputs.version }}
+          path: |
+            release/*
+            build/release-control/*
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    name: Publish verified assets
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          path: release-input
+          merge-multiple: true
+      - name: Verify, tag, and publish
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
+            const {version}=context.payload.inputs,tag=`v${version}`,sourceSha=context.sha;
+            const control=JSON.parse(await fs.readFile('release-input/build/release-control/release.json','utf8'));
+            if(context.ref!==`refs/heads/${context.payload.repository.default_branch}` || control.version!==version || control.source_sha!==sourceSha || control.repository!==`${context.repo.owner}/${context.repo.repo}`) throw new Error('Release request mismatch.');
+            const expected=[`gflowris-${version}-windows-x64-setup.exe`,`gflowris-${version}-windows-x64-portable.zip`,`gflowris-${version}-chrome-extension.zip`,`gflowris-${version}-source.zip`,'SHA256SUMS.txt'].sort();
+            const directory='release-input/release';
+            if(JSON.stringify((await fs.readdir(directory)).sort())!==JSON.stringify(expected) || JSON.stringify(Object.keys(control.assets).sort())!==JSON.stringify(expected)) throw new Error('Unexpected release assets.');
+            const hashes={};
+            for(const name of expected){
+              const file=path.join(directory,name),stat=await fs.lstat(file);
+              if(!stat.isFile() || !stat.size || stat.size!==control.assets[name].bytes) throw new Error(`Invalid asset ${name}`);
+              hashes[name]=crypto.createHash('sha256').update(await fs.readFile(file)).digest('hex');
+              if(hashes[name]!==control.assets[name].sha256) throw new Error(`Checksum mismatch ${name}`);
+            }
+            const sums=(await fs.readFile(path.join(directory,'SHA256SUMS.txt'),'utf8')).trim().split(/\r?\n/).sort();
+            if(JSON.stringify(sums)!==JSON.stringify(expected.filter(n=>n!=='SHA256SUMS.txt').map(n=>`${hashes[n]}  ${n}`).sort())) throw new Error('Checksum manifest mismatch.');
+            const body=await fs.readFile('release-input/build/release-control/notes.md','utf8');
+            const bulletLines=context.payload.inputs.release_notes.split(';').map(n=>n.trim().replace(/\s+/g,' ')).filter(Boolean).map(n=>'- '+n).join('\n');
+            if(!body.startsWith("## What's new\n\n"+bulletLines+'\n\n')) throw new Error('Release notes mismatch.');
+            async function unused(){
+              try{await github.rest.git.getRef({...context.repo,ref:`tags/${tag}`});throw new Error('Version tag already exists.');}catch(e){if(e.status!==404)throw e;}
+              const releases=await github.paginate(github.rest.repos.listReleases,{...context.repo,per_page:100});
+              if(releases.some(r=>r.tag_name===tag))throw new Error('Release already exists. Existing versions are never overwritten.');
+            }
+            await unused();
+            const versionPaths=['package.json','package-lock.json','extension/manifest.json'];
+            if(JSON.stringify(Object.keys(control.version_files).sort())!==JSON.stringify([...versionPaths].sort()))throw new Error('Unexpected version files.');
+            const tree=[];
+            for(const name of versionPaths){
+              const response=await github.rest.repos.getContent({...context.repo,path:name,ref:sourceSha});
+              const document=JSON.parse(Buffer.from(response.data.content,'base64').toString('utf8'));
+              document.version=version;if(name==='package-lock.json')document.packages[''].version=version;
+              const content=JSON.stringify(document,null,2)+'\n';
+              if(content!==control.version_files[name])throw new Error('Unexpected version change.');
+              tree.push({path:name,mode:'100644',type:'blob',content});
+            }
+            const parent=await github.rest.git.getCommit({...context.repo,commit_sha:sourceSha});
+            const createdTree=await github.rest.git.createTree({...context.repo,base_tree:parent.data.tree.sha,tree});
+            const identity={name:'gflowris release bot',email:'release@gflowris.invalid'};
+            const commit=await github.rest.git.createCommit({...context.repo,message:`Release gflowris ${version}`,tree:createdTree.data.sha,parents:[sourceSha],author:identity,committer:identity});
+            await unused();
+            const release=await github.rest.repos.createRelease({...context.repo,tag_name:tag,target_commitish:commit.data.sha,name:`gflowris ${version}`,body,draft:true,prerelease:false});
+            const id=release.data.id;
+            for(const name of expected){
+              const data=await fs.readFile(path.join(directory,name));
+              await github.rest.repos.uploadReleaseAsset({...context.repo,release_id:id,name,data,headers:{'content-type':'application/octet-stream','content-length':data.length}});
+            }
+            const uploaded=await github.paginate(github.rest.repos.listReleaseAssets,{...context.repo,release_id:id,per_page:100});
+            if(uploaded.length!==expected.length || !expected.every(name=>uploaded.some(a=>a.name===name && a.state==='uploaded' && a.digest===`sha256:${hashes[name]}`)))throw new Error('Uploaded assets did not verify. The draft is kept for inspection.');
+            const published=await github.rest.repos.updateRelease({...context.repo,release_id:id,draft:false,make_latest:'true'});
+            await core.summary.addHeading(`gflowris ${version}`).addLink('Open release',published.data.html_url).addRaw('\n\n'+body).write();

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cutris"
+dynamic = ["version", "dependencies"]
+description = "Local background removal for the command line, HTTP integrations, and desktop."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "MIT"
+
+[project.optional-dependencies]
+desktop = ["pywebview==6.2.1"]
+
+[project.scripts]
+cutris = "cutris.cli:main"
+
+[tool.setuptools]
+packages = ["cutris"]
+py-modules = ["app_paths", "engine", "image_geometry", "model_manager", "desktop", "server", "model_setup_ui"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}

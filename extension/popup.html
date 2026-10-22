@@ -1,0 +1,7 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="popup.css"></head><body>
+<header><div class="mark"><img src="icons/icon-48.png" width="34" height="34" alt=""></div><div><h1>gflowris</h1><p>YOUR CHROME CONNECTION</p></div><span id="status-dot" class="dot"></span></header>
+<div class="connection-list"><div><span>Desktop</span><strong id="desktop-state">Checking…</strong></div><div><span>Flow project</span><strong id="project-state">Checking…</strong></div><div id="queue-row" hidden><span>Queue</span><strong id="queue-state"></strong></div></div>
+<p id="instructions">Open a signed-in Flow project and connect it to your desktop workspace.</p>
+<div class="actions"><button id="connect" class="primary" disabled>Connect this project</button><button id="open-desktop" class="secondary">Open desktop app</button><button id="open-flow" class="text-button" hidden>Open Google Flow</button></div>
+<div id="status" role="status" hidden></div><details id="diagnostics" hidden><summary>Connection details</summary><p id="error-detail"></p><button id="copy-extension" class="text-button">Copy extension ID</button></details>
+<footer><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="10" width="12" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Your Google login stays in Chrome.</footer><script src="popup.js"></script></body></html>

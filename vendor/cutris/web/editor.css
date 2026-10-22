@@ -1,0 +1,18 @@
+/* The preview uses a view-only transform. It is not a nested scroll trap. */
+.viewport { overflow:hidden; overscroll-behavior:auto; }
+#canvasWrap { position:absolute; top:0; left:0; margin:0; transform-origin:0 0; }
+#selectionOverlay { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.navigation-hint { font-size:11px; line-height:1.6; color:#82778e; margin-top:10px; }
+.wheel-option { display:flex; gap:5px; align-items:center; font-size:11px; margin-right:5px; white-space:nowrap; }
+.wheel-option input { accent-color:#8670bd; }
+.brush-size input[type=number], .wand-controls input[type=number] { width:65px; min-width:65px; border:1px solid #ded7e9; border-radius:8px; padding:7px 5px; background:#fff; color:#554467; font-variant-numeric:tabular-nums; }
+.brush-size input[type=range] { width:80px; }
+.wand-panel { padding:13px; border:1px solid #e9d9ed; border-radius:12px; background:#fcf6fc; margin-top:13px; }
+.wand-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.wand-controls label { display:flex; align-items:center; gap:8px; font-size:12px; margin-right:auto; }
+.wand-controls input[type=range] { width:95px; accent-color:#af62a0; }
+.wand-controls button { font-size:11px; }
+#selectionStatus { font-size:12px; line-height:1.5; margin-top:10px; color:#824d77; }
+.wand-panel .hint { font-size:10px; margin-top:6px; }
+.touchup-tools .segmented { flex-wrap:wrap; }
+@media(max-width:790px) { .zoom-controls { flex-wrap:wrap; }.wand-controls label { flex-wrap:wrap; }.touchup-tools .segmented button { padding:7px 9px; } }

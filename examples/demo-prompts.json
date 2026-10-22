@@ -1,0 +1,27 @@
+[
+  {
+    "title": "Lavender crystal icon",
+    "prompt": "Lavender crystal game icon.\n\nThree polished faceted translucent crystals growing from a small rounded base, a tiny pale gold sparkle, charming premium 3D game asset, centered isolated on a pure white background, soft studio lighting, clean silhouette, no text, no letters, no logo.",
+    "ratio": "1:1", "count": 1, "resolution": "2K", "removeBackground": true, "cutrisMode": "white"
+  },
+  {
+    "title": "Mint backpack icon",
+    "prompt": "Mint adventure backpack icon.\n\nA mint green backpack with lavender straps and a small cream star patch, charming polished 3D game inventory icon, full object visible, centered isolated on a pure white background, soft studio lighting, rounded forms, no text, no letters, no logo.",
+    "ratio": "3:4", "count": 1, "resolution": "2K", "removeBackground": true, "cutrisMode": "white"
+  },
+  {
+    "title": "Person in front of a building",
+    "prompt": "Editorial photograph of a fictional adult man wearing a navy blue jacket, beige chinos and white sneakers, standing full length on a sunlit sidewalk in front of a modern sandstone building. Relaxed natural pose, hands visible, realistic proportions, soft daylight, distinct separation between the person and the architectural background, complete shoes in frame, no text, no logos.",
+    "ratio": "3:4", "count": 1, "resolution": "2K", "removeBackground": true, "cutrisMode": "ai"
+  },
+  {
+    "title": "Ceramic teapot product photo",
+    "prompt": "Premium product photograph of a matte sage green ceramic teapot with a natural walnut handle, one complete teapot centered on a seamless warm cream studio background, elegant curved spout, tactile ceramic glaze, soft diffused light, subtle grounded shadow, no text, no letters, no logos.",
+    "ratio": "4:3", "count": 1, "resolution": "2K", "removeBackground": true, "cutrisMode": "ai"
+  },
+  {
+    "title": "Alpine valley landscape",
+    "prompt": "Beautiful cinematic photograph of a quiet alpine valley at sunrise, a winding turquoise river through a green meadow, layered distant mountain peaks, pale golden light through soft clouds, natural colors and detailed landscape, wide composition, no people, no text, no logos.",
+    "ratio": "16:9", "count": 1, "resolution": "2K", "removeBackground": false
+  }
+]

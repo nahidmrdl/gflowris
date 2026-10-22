@@ -1,0 +1,3 @@
+include branding.json requirements.txt README.md LICENSE THIRD_PARTY_NOTICES.md
+recursive-include web *
+recursive-include packaging/assets *.ico *.png

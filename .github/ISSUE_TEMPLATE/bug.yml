@@ -1,0 +1,27 @@
+name: Bug report
+description: Report a reproducible desktop, extension, or editing problem.
+body:
+  - type: input
+    id: version
+    attributes:
+      label: App and extension versions
+      placeholder: 'gflowris 1.0.0, bridge 1.0.0'
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps and expected result
+      description: Include the queue stage and settings involved. Keep credentials and personal paths out of logs or screenshots.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Windows and Chrome versions
