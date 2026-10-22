@@ -47,6 +47,8 @@ Each prompt waits for generation, downloads, and optional Cutris processing befo
 
 Originals and earlier edits are preserved. Choose your output folder and auto-crop transparent space on export. Clearing the queue or image gallery keeps your saved files.
 
+Exports use readable names from your prompt titles. Downloads go in `originals`; transparent PNGs and edited versions go in `cutouts`. Duplicate names are numbered automatically.
+
 For the standalone desktop app, CLI/API, and detailed editing guides, visit the [Cutris repository](https://github.com/nahidmrdl/cutris).
 
 ## Get started

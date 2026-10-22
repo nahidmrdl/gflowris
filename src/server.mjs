@@ -59,7 +59,7 @@ const imageQueue=new ImageQueue({
     const marker=`${item.id}-${index+1}`;
     const completion=new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>{downloads.delete(marker);reject(new Error('Download timed out. Check Flow and Chrome Downloads.'));},15*60*1000);
-      downloads.set(marker,{resolve,reject,timer,folder:item.outputFolder,settled:false});
+      downloads.set(marker,{resolve,reject,timer,folder:item.outputFolder,naming:{title:item.title,prompt:item.prompt,index,count:item.count},settled:false});
     });
     // Handle an early failure while the browser is still opening the download menu.
     completion.catch(()=>{});
@@ -131,7 +131,7 @@ const server=http.createServer(async(req,res)=>{
       if(waiting.settled){reply(res,200,{ok:true});return;}waiting.settled=true;
       try{
         if(data.error)throw new Error(safeText(data.error));
-        const saved=await saveDownload(data.filename,waiting.folder,data.marker);clearTimeout(waiting.timer);waiting.resolve(saved);reply(res,200,{ok:true});
+        const saved=await saveDownload(data.filename,waiting.folder,data.marker,{...waiting.naming,flowTitle:waiting.identity?.title});clearTimeout(waiting.timer);waiting.resolve(saved);reply(res,200,{ok:true});
       }catch(error){clearTimeout(waiting.timer);waiting.reject(error);reply(res,400,{error:safeText(error.message)});}
       return;
     }

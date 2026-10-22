@@ -4,6 +4,7 @@ import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
+import {exportFolders} from './export-files.mjs';
 
 const run=promisify(execFile);
 export function displayOutputFolder(folder,home=os.homedir()){
@@ -27,12 +28,13 @@ export async function defaultOutputFolder({platform=process.platform,home=os.hom
 
 // Check permissions before spending time on generation. Existing files are untouched.
 export async function prepareOutputFolder(folder){
-  let probe,handle;
   try{
-    await fs.mkdir(folder,{recursive:true});
-    probe=path.join(folder,'.gflowris-write-'+randomUUID()+'.tmp');
-    handle=await fs.open(probe,'wx');
-    await handle.close();handle=null;
+    const folders=await exportFolders(folder);
+    for(const target of [folders.originals,folders.cutouts]){
+      const probe=path.join(target,'.gflowris-write-'+randomUUID()+'.tmp');
+      let handle;
+      try{handle=await fs.open(probe,'wx');}
+      finally{if(handle){await handle.close();await fs.unlink(probe);}}
+    }
   }catch{throw new Error('The output folder could not be created or written to. Choose another folder before generating.');}
-  finally{if(handle)await handle.close().catch(()=>{});if(probe)await fs.unlink(probe).catch(()=>{});}
 }

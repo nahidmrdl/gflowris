@@ -56,7 +56,9 @@ export function createQueueWorkspace({api,getValues,setValues,notice,isActive,sa
       moves.children[0].setAttribute('aria-label','Move prompt '+(index+1)+' up');moves.children[1].setAttribute('aria-label','Move prompt '+(index+1)+' down');
       const number=node('span','prompt-number',String(index+1).padStart(2,'0')),copy=node('div','prompt-copy');
       copy.append(node('h3','',item.title||item.prompt.split('\n')[0].slice(0,70)),node('p','prompt-excerpt',item.prompt));
-      const badges=node('div','metadata');for(const value of [item.model||'Choose a model',item.ratio,item.count+' image'+(item.count===1?'':'s'),item.resolution,item.removeBackground?'Cutris on':'Background kept'])badges.append(node('span','',value));copy.append(badges);
+      const badges=node('div','metadata'),values=[item.model||'Choose a model',item.ratio,item.count+' image'+(item.count===1?'':'s'),item.resolution,item.removeBackground?'Cutris on':'Background kept'];
+      if(item.removeBackground)values.push(item.cutrisMode==='white'?'White illustration':'Any background',item.cutrisQuality==='fast'?'Faster':'Best detail');
+      for(const value of values)badges.append(node('span','',value));copy.append(badges);
       const actions=node('div','prompt-card-actions');
       const running=isActive()&&currentRun?.items[index]?.prompt===item.prompt?currentRun.items[index]:null;
       actions.append(node('small','prompt-state',running?.stage||'Ready'),button('Edit',()=>edit(item),disabled),button('Duplicate',()=>commit(next=>{if(next.length===25)throw new Error('The queue already has 25 prompts.');next.splice(index+1,0,{...item,id:crypto.randomUUID()});return next;}),disabled||items.length===25),button('Remove',()=>commit(next=>next.filter(entry=>entry.id!==item.id)),disabled));

@@ -51,6 +51,8 @@ The selected project must remain open during a queue. Chrome may ask to allow mu
 
 The default `gflowris-images` folder follows Windows' Pictures location. If Windows cannot provide one, it falls back to the user's home folder. Missing folders are created. A write check runs before generation; if it fails, choose another folder with **Browse**.
 
+New exports are named from the prompt title, with Flow's image title as the fallback. The output folder contains `originals` for downloaded images and `cutouts` for transparent PNGs and saved edits. Multi-image prompts, repeated titles, reprocessing, and further edits receive numeric suffixes so existing files are kept.
+
 **Browse** opens a native folder picker in the desktop app. **Open folder** shows the output folder in Windows Explorer. Folder errors appear in the workspace or settings dialog.
 
 Open **Cutris editor → AI models** to install or repair models. The same models and engine are used by automatic processing and the embedded editor. A standalone Cutris desktop installation is optional.

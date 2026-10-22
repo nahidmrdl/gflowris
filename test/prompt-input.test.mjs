@@ -54,7 +54,8 @@ test('output defaults follow Windows Pictures redirection and fall back to the c
 });
 test('missing output folders are created and unusable destinations fail before generation',async t=>{
   const folder=await fs.mkdtemp(path.join(os.tmpdir(),'gflowris-output-'));t.after(()=>fs.rm(folder,{recursive:true,force:true}));
-  const destination=path.join(folder,'missing','gflowris-images');await prepareOutputFolder(destination);assert.deepEqual(await fs.readdir(destination),[]);
+  const destination=path.join(folder,'missing','gflowris-images');await prepareOutputFolder(destination);assert.deepEqual((await fs.readdir(destination)).sort(),['cutouts','originals']);
+  for(const name of ['originals','cutouts'])assert.deepEqual(await fs.readdir(path.join(destination,name)),[]);
   const artwork=path.join(destination,'keep.png');await fs.writeFile(artwork,'keep');await prepareOutputFolder(destination);assert.equal(await fs.readFile(artwork,'utf8'),'keep');
   await assert.rejects(prepareOutputFolder(artwork),/Choose another folder/);
 });

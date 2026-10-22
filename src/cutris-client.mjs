@@ -1,9 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {launchBackgroundPython} from './background-process.mjs';
-import {randomUUID} from 'node:crypto';
 import {sleep} from './companion-control.mjs';
 import {imageExtension} from './downloads.mjs';
+import {exportFolders,writePngExport} from './export-files.mjs';
 import {checkCancellation} from './cancellation.mjs';
 const readJson=async file=>JSON.parse((await fs.readFile(file,'utf8')).replace(/^\uFEFF/,''));
 export class CutrisClient{
@@ -82,10 +82,10 @@ export class CutrisClient{
       const response=await fetch(connection.origin+'/v1/projects/'+cutout.projectId+'/result',{headers:connection.headers,signal:AbortSignal.timeout(15000)});
       if(!response.ok)throw new Error('Save your changes in Cutris, then try again.');
       const bytes=Buffer.from(await response.arrayBuffer());if(bytes.length>150*1024*1024||imageExtension(bytes)!=='.png')throw new Error('Cutris returned an invalid PNG.');
-      const stem=path.parse(cutout.name).name.replace(/-edited-[a-f0-9]{8}$/,'');
-      const name=stem+'-edited-'+randomUUID().slice(0,8)+'.png',destination=path.join(path.dirname(cutout.path),name);
-      await fs.writeFile(destination,bytes,{flag:'wx'});
-      return {...cutout,name,path:destination,bytes:bytes.length,revision:Number(response.headers.get('x-cutris-revision')),width:Number(response.headers.get('x-cutris-width')),height:Number(response.headers.get('x-cutris-height')),savedAt:new Date().toISOString()};
+      const stem=cutout.exportStem||path.parse(cutout.name).name.replace(/-edited-[a-f0-9]{8}$/i,'').replace(/-edited(?:-\d+)?$/,'');
+      const folders=await exportFolders(cutout.outputRoot||path.dirname(cutout.path));
+      const saved=await writePngExport(bytes,folders.cutouts,stem+'-edited');
+      return {...cutout,...saved,outputRoot:folders.outputRoot,exportStem:stem,bytes:bytes.length,revision:Number(response.headers.get('x-cutris-revision')),width:Number(response.headers.get('x-cutris-width')),height:Number(response.headers.get('x-cutris-height')),savedAt:new Date().toISOString()};
     }finally{this.busy=false;}
   }
   async remove(file,options={}){
@@ -104,16 +104,12 @@ export class CutrisClient{
       if(!response.ok){const error=await response.json().catch(()=>({}));throw new Error(typeof error.detail==='string'?error.detail:'Cutris could not finish this image. The original is saved.');}
       if(!response.headers.get('content-type')?.startsWith('image/png'))throw new Error('Cutris returned an unexpected response.');
       const bytes=Buffer.from(await response.arrayBuffer());if(bytes.length>150*1024*1024||imageExtension(bytes)!=='.png')throw new Error('Cutris returned an invalid PNG.');
-      const folder=path.dirname(file.path),stem=path.parse(file.name).name;
+      const folders=await exportFolders(file.outputRoot||path.dirname(file.path)),stem=file.exportStem||path.parse(file.name).name;
       checkCancellation(signal);
-      let name,destination;
-      for(let i=0;i<10000;i++){
-        name=stem+'-cutout'+(i?'-'+(i+1):'')+'.png';destination=path.join(folder,name);
-        try{await fs.writeFile(destination,bytes,{flag:'wx'});break;}catch(error){if(error.code!=='EEXIST')throw error;if(i===9999)throw new Error('Choose another output folder.');}
-      }
       const projectId=response.headers.get('x-cutris-project');
-      if(!/^[a-f0-9]{32}$/.test(projectId||''))throw new Error('Cutris saved a PNG but did not return an editable project.');
-      return {name,path:destination,bytes:bytes.length,projectId,revision:0,serviceDescriptor:connection.descriptorFile,dataDir:connection.dataDir,width:Number(response.headers.get('x-cutris-width')),height:Number(response.headers.get('x-cutris-height')),savedAt:new Date().toISOString()};
+      if(!/^[a-f0-9]{32}$/.test(projectId||''))throw new Error('Cutris did not return an editable project. The original is saved.');
+      const saved=await writePngExport(bytes,folders.cutouts,stem);
+      return {...saved,outputRoot:folders.outputRoot,exportStem:path.parse(saved.name).name,bytes:bytes.length,projectId,revision:0,serviceDescriptor:connection.descriptorFile,dataDir:connection.dataDir,width:Number(response.headers.get('x-cutris-width')),height:Number(response.headers.get('x-cutris-height')),savedAt:new Date().toISOString()};
     }finally{this.busy=false;}
   }
 }

@@ -40,19 +40,13 @@
   <div class="dialog-heading"><div><h2 id="prompt-guide-title">Prompts and JSON</h2><p>One image idea or a queue of up to 25 prompts.</p></div><button data-close="prompt-help-dialog" class="icon-button" aria-label="Close prompt help">×</button></div>
   <div class="dialog-body">
     <p>For plain text, use <strong>Single prompt</strong>. To turn JSON into queue cards, choose <strong>JSON</strong> beside New prompt, or use <strong>Import JSON</strong>.</p>
-    <div class="prompt-example-toolbar"><label for="prompt-example-kind">Example<select id="prompt-example-kind"><option value="single">One prompt</option><option value="shared">Shared settings</option><option value="individual">Different settings</option><option value="blocks">Multiple JSON blocks</option></select></label><button id="copy-prompt-example" class="secondary small" type="button">Copy example</button></div>
+    <div class="prompt-example-toolbar"><label for="prompt-example-kind">Example<select id="prompt-example-kind"><option value="single">One prompt</option><option value="white">Remove a white background</option><option value="any">Remove any background</option><option value="keep">Keep the background</option><option value="shared">Shared settings</option><option value="individual">Different settings</option><option value="blocks">Multiple JSON blocks</option></select></label><button id="copy-prompt-example" class="secondary small" type="button">Copy example</button></div>
     <p id="prompt-example-description" class="hint"></p>
     <pre class="prompt-json-code" tabindex="0" aria-label="JSON example"><code id="prompt-json-example"></code></pre>
     <details class="prompt-guide-details"><summary>Ask your AI to create the JSON</summary><p>Copy this instruction, replace the image brief, and give it to your AI. Paste its response into JSON mode or Import JSON.</p><textarea id="prompt-ai-instructions" readonly spellcheck="false" aria-label="Instructions to give your AI"></textarea><button id="copy-ai-instructions" class="secondary small" type="button">Copy AI instructions</button></details>
-    <details class="prompt-guide-details"><summary>Fields and multiple JSONs</summary>
-      <dl class="prompt-json-fields">
-        <dt><code>prompt</code> / <code>title</code></dt><dd>Image description (text or a JSON object) and an optional short card title.</dd>
-        <dt><code>defaults</code> / <code>prompts</code></dt><dd>Shared settings and the list of prompts. Individual prompt settings override defaults. Omitted settings use the composer.</dd>
-        <dt><code>model</code> / <code>ratio</code> / <code>resolution</code></dt><dd>Use choices available in your connected Flow project. Leave model out to use the composer selection.</dd>
-        <dt><code>count</code></dt><dd>Images per prompt: a number from 1 to 4.</dd>
-        <dt><code>removeBackground</code> / <code>autoCrop</code></dt><dd>Use <code>true</code> or <code>false</code>. Auto crop trims transparent margins after background removal.</dd>
-        <dt><code>cutrisQuality</code> / <code>cutrisMode</code></dt><dd>Quality: <code>detail</code> or <code>fast</code>. Background: <code>ai</code> (any background) or <code>white</code> (white illustration).</dd>
-      </dl>
+    <section class="prompt-guide-details prompt-options"><h3>Every JSON setting</h3><p id="prompt-available-status" class="hint"></p><div class="prompt-options-scroll"><table class="prompt-options-table"><thead><tr><th scope="col">Field</th><th scope="col">Accepted values</th><th scope="col">What it does</th></tr></thead><tbody id="prompt-options-body"></tbody></table></div><p class="hint"><code>removeBackground</code> accepts only <code>true</code> or <code>false</code>. Choose the treatment separately with <code>cutrisMode</code> and <code>cutrisQuality</code>. Mode, quality, and auto crop apply when removal is on.</p></section>
+    <details class="prompt-guide-details"><summary>Shared settings and multiple JSONs</summary>
+      <p>Use <code>defaults</code> for shared settings and <code>prompts</code> for up to 25 entries. Individual prompt settings override defaults. Options may also be grouped under <code>settings</code>. Omitted choices use the composer.</p>
       <p>Arrays, JSONL, and consecutive JSON objects are also accepted. For explicit blocks, place <code>---PROMPT---</code> on its own line between complete JSON objects or arrays. <strong>Insert separator</strong> adds it for you. Blank lines do not split text prompts.</p>
       <p class="hint">Use double quotes, real booleans, and no trailing commas. To keep a structured JSON image description as one prompt, put that object inside the <code>prompt</code> field.</p>
     </details>

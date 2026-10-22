@@ -8,7 +8,10 @@ export function promptOptions(entry={},defaults={}){
   for(const key of ['model','ratio','resolution'])if(typeof values[key]!=='string'||values[key].length>100)throw new Error('Invalid '+key+' setting.');
   values.count=Number(values.count);
   if(!Number.isInteger(values.count)||values.count<1||values.count>4)throw new Error('Image count must be between 1 and 4.');
-  if(typeof values.removeBackground!=='boolean'||typeof values.autoCrop!=='boolean'||!['detail','fast'].includes(values.cutrisQuality)||!['ai','white'].includes(values.cutrisMode))throw new Error('Invalid Cutris settings.');
+  if(typeof values.removeBackground!=='boolean')throw new Error('removeBackground must be true or false. Choose the background treatment with cutrisMode.');
+  if(typeof values.autoCrop!=='boolean')throw new Error('autoCrop must be true or false.');
+  if(!['detail','fast'].includes(values.cutrisQuality))throw new Error('cutrisQuality must be "detail" or "fast".');
+  if(!['ai','white'].includes(values.cutrisMode))throw new Error('cutrisMode must be "ai" (Any background) or "white" (White illustration).');
   return values;
 }
 

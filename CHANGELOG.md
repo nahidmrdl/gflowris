@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Name exported images from prompt or Flow titles and separate originals from cutouts and edited PNGs.
+- Show all JSON settings and available Flow choices, with examples for background modes, quality, and auto crop.
+- Display background treatment and AI quality on each prompt card.
 - Fix folder opening and browsing in the workspace and embedded Cutris editor, with visible errors instead of silent failures.
 - Stop background helpers during updates and uninstall to release locked files.
 - Protect open edits and active queues during setup; keep the Chrome extension installed.

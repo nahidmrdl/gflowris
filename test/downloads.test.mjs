@@ -14,6 +14,7 @@ test('only copies the exact job-associated image and never overwrites it',async 
   const marker=randomUUID()+'-1',source=path.join(temp,marker+'.png'),folder=path.join(temp,'out');
   await fs.writeFile(source,Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),Buffer.alloc(32)]));
   await assert.rejects(saveDownload(source,folder,randomUUID()+'-1'),/does not match/);
-  const saved=await saveDownload(source,folder,marker);assert.equal(saved.bytes,40);assert(await fs.stat(source));
-  await assert.rejects(saveDownload(source,folder,marker),{code:'EEXIST'});
+  const saved=await saveDownload(source,folder,marker,{title:'Crystal icon'});assert.equal(saved.bytes,40);assert(await fs.stat(source));
+  assert.equal(saved.name,'crystal-icon.png');assert.equal(path.dirname(saved.path),path.join(folder,'originals'));
+  const duplicate=await saveDownload(source,folder,marker,{title:'Crystal icon'});assert.equal(duplicate.name,'crystal-icon-2.png');assert.deepEqual(await fs.readFile(saved.path),await fs.readFile(duplicate.path));
 });
