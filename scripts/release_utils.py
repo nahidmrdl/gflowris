@@ -84,7 +84,18 @@ def audit(paths, *, dependencies=False):
         # Upstream wheels retain public CI/build paths and author attribution.
         # Match this workstation's actual home instead of every upstream account.
         home = str(Path.home())
-        patterns += [re.escape(value.encode()) for value in {home, home.replace('\\', '/'), home.replace('\\', '\\\\')}]
+        hosted_windows_account = (
+            os.environ.get('GITHUB_ACTIONS') == 'true'
+            and os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted'
+            and os.environ.get('RUNNER_OS') == 'Windows'
+            and os.environ.get('USERNAME', '').casefold() == 'runneradmin'
+            and home.replace('\\', '/').rstrip('/').casefold() == 'c:/users/runneradmin'
+        )
+        # This public account also appears inside upstream Windows wheels.
+        # Keep home-path checks on developer machines and self-hosted runners.
+        # Credential checks above always apply, including on GitHub-hosted CI.
+        if not hosted_windows_account:
+            patterns += [re.escape(value.encode()) for value in {home, home.replace('\\', '/'), home.replace('\\', '\\\\')}]
     else:
         patterns += [rb'[A-Za-z]:[\\/]Users[\\/](?!runneradmin(?:[\\/]))[^\s\x00<>"\']+', rb'/Users/[^/\s]+/']
     for base in paths:

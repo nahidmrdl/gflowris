@@ -14,7 +14,7 @@ for name in ('package.json', 'package-lock.json', 'extension/manifest.json'):
     file.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
 control = ROOT / 'build' / 'release-control'
 control.mkdir(parents=True, exist_ok=True)
-(control / 'notes.md').write_text(body, encoding='utf-8')
+(control / 'notes.md').write_text(body, encoding='utf-8', newline='\n')
 (control / 'request.json').write_text(json.dumps({'version': value, 'tag': 'v' + value,
     'source_sha': os.environ.get('GITHUB_SHA', ''), 'repository': os.environ.get('GITHUB_REPOSITORY', '')}, indent=2) + '\n', encoding='utf-8')
 print('Prepared gflowris ' + value)
