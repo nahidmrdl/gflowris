@@ -1,6 +1,6 @@
 {
   "name": "gflowris",
-  "version": "0.3.3",
+  "version": "1.0.5",
   "private": true,
   "type": "module",
   "description": "Desktop Google Flow image queue with Native Messaging and Cutris editing",
