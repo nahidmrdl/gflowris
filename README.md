@@ -52,7 +52,7 @@ For the standalone desktop app, CLI/API, and detailed editing guides, visit the 
 ## Get started
 
 1. Download **Windows Setup** or extract the **portable ZIP** from [Releases](https://github.com/nahidmrdl/gflowris/releases).
-2. Open gflowris and choose **Extension setup**. Load the bundled extension unpacked in Chrome.
+2. Choose **Extension setup**, download the latest extension ZIP, and extract it to a permanent folder. Enter `chrome://extensions` in Chrome, enable **Developer mode**, and **Load unpacked** that folder.
 3. Open your signed-in Flow project and choose **Connect this project** in **gflowris bridge**.
 4. Add prompts and click **Run queue**.
 

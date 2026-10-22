@@ -4,11 +4,11 @@ The extension is the ongoing connection between gflowris and your signed-in Flow
 
 ## Install and connect
 
-The desktop download includes `extension/`. **Extension setup** opens that folder. In `chrome://extensions`, enable Developer mode and load it unpacked. Open a Flow project, then choose **Connect this project** in **gflowris bridge**.
+In gflowris, choose **Extension setup → Download extension ZIP**. The button resolves the latest published release. Extract the ZIP to a permanent folder, enter `chrome://extensions` in Chrome's address bar, enable **Developer mode**, and choose **Load unpacked** to select that folder. Open a Flow project, then choose **Connect this project** in **gflowris bridge**.
 
-The separate **chrome-extension.zip** release contains the same bridge. Extract it before loading. Both release copies have a fixed public manifest key and ID; the desktop automatically registers that origin. Source installs register their own development ID using `setup-native.ps1`.
+The desktop download also includes the same bridge in `extension/`. Both release copies have a fixed public manifest key and ID; the desktop automatically registers that origin. Source installs register their own development ID using `setup-native.ps1`.
 
-The app links directly to its bundled folder. There is no Chrome Web Store listing yet, and no previous release is needed to establish the connection.
+If the latest download cannot be checked, **View latest release** opens [the latest release page](https://github.com/nahidmrdl/gflowris/releases/latest). Download the **chrome-extension.zip** asset there. There is no Chrome Web Store listing yet.
 
 ## Permissions
 

@@ -1,25 +1,20 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import {spawn} from 'node:child_process';
-import {openRegularChrome} from './browser.mjs';
+const RELEASES='https://github.com/nahidmrdl/gflowris/releases/latest';
+const RELEASE_API='https://api.github.com/repos/nahidmrdl/gflowris/releases/latest';
+let cached=null,cacheUntil=0;
 
-export async function extensionInfo(root,stateRoot){
-  let bundled=false,extensionId=null;
-  try{const manifest=JSON.parse(await fs.readFile(path.join(root,'extension','manifest.json'),'utf8'));bundled=manifest.manifest_version===3;}catch{}
-  try{const registration=JSON.parse((await fs.readFile(path.join(stateRoot,'native-registration.json'),'utf8')).replace(/^\uFEFF/,''));extensionId=registration.origin.match(/^chrome-extension:\/\/([a-p]{32})\/$/)?.[1]||null;}catch{}
-  return {bundled,extensionId,managerUrl:'chrome://extensions/'+(extensionId?'?id='+extensionId:'')};
-}
-
-export async function openExtensionFolder(root,stateRoot){
-  const info=await extensionInfo(root,stateRoot);
-  if(!info.bundled)throw new Error('The bundled extension is missing. Repair or reinstall gflowris.');
-  const folder=path.join(root,'extension');
-  const executable=process.platform==='win32'?'explorer.exe':process.platform==='darwin'?'open':'xdg-open';
-  const child=spawn(executable,[folder],{detached:true,stdio:'ignore',windowsHide:true});
-  await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});child.unref();
-}
-
-export async function openExtensionManager(root,stateRoot){
-  const info=await extensionInfo(root,stateRoot);
-  await openRegularChrome(info.managerUrl);
+export async function extensionInfo(){
+  if(cached&&Date.now()<cacheUntil)return cached;
+  try{
+    const response=await fetch(RELEASE_API,{headers:{Accept:'application/vnd.github+json','User-Agent':'gflowris'},signal:AbortSignal.timeout(8000)});
+    if(!response.ok)throw new Error('Latest release unavailable.');
+    const release=await response.json();
+    if(release.draft||release.prerelease||!/^v\d+\.\d+\.\d+$/.test(release.tag_name))throw new Error('Invalid release.');
+    const version=release.tag_name.slice(1),name=`gflowris-${version}-chrome-extension.zip`;
+    const asset=release.assets?.find(value=>value.name===name&&value.state==='uploaded');
+    const expected=`https://github.com/nahidmrdl/gflowris/releases/download/${release.tag_name}/${name}`;
+    if(asset?.browser_download_url!==expected)throw new Error('Extension asset unavailable.');
+    cached={downloadUrl:expected,version,direct:true};cacheUntil=Date.now()+300000;return cached;
+  }catch{
+    return {downloadUrl:RELEASES,direct:false};
+  }
 }

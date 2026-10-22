@@ -13,7 +13,7 @@ import {CutrisClient} from './cutris-client.mjs';
 import {stateRoot} from './paths.mjs';
 import {DEFAULT_PREFERENCES,validatePreferences} from './preferences.mjs';
 import {defaultOutputFolder,prepareOutputFolder,displayOutputFolder} from './output-folder.mjs';
-import {extensionInfo,openExtensionFolder,openExtensionManager} from './extension-setup.mjs';
+import {extensionInfo} from './extension-setup.mjs';
 import {DraftQueue} from './draft-queue.mjs';
 import {cancellable,cancellationError,checkCancellation} from './cancellation.mjs';
 
@@ -118,7 +118,7 @@ const server=http.createServer(async(req,res)=>{
     }
     if(url.pathname==='/bridge/pair'&&req.method==='POST'){
       const data=await body(req);
-      if(!isExtension||extensionToken||data.code!==pairCode){reply(res,403,{error:'Pairing code is incorrect or already used. Restart the companion to pair again.'});return;}
+      if(!isExtension||extensionToken||data.code!==pairCode){reply(res,403,{error:'This connection request is invalid or expired. Reconnect your project from gflowris bridge.'});return;}
       extensionOrigin=requestOrigin;extensionToken=crypto.randomBytes(32).toString('hex');await saveSession();
       reply(res,200,{token:extensionToken});return;
     }
@@ -134,7 +134,7 @@ const server=http.createServer(async(req,res)=>{
       return;
     }
     if(url.pathname==='/bridge/select-tab'&&req.method==='POST'){
-      if(!isExtension||requestOrigin!==extensionOrigin||!auth(req,extensionToken)){reply(res,401,{error:'The saved pairing is unavailable. Create a new pairing code on the dashboard.'});return;}
+      if(!isExtension||requestOrigin!==extensionOrigin||!auth(req,extensionToken)){reply(res,401,{error:'The Flow connection is unavailable. Reconnect your project from gflowris bridge.'});return;}
       if(imageQueue.running||pending.size)throw new Error('Wait for the active Flow operation before changing tabs.');
       const data=await body(req),page=new URL(data.page);
       if(!Number.isSafeInteger(data.tabId)||data.tabId<0||page.protocol!=='https:'||!(page.hostname==='flow.google.com'||page.hostname==='labs.google'&&page.pathname.startsWith('/fx/')))throw new Error('Select a Flow tab.');
@@ -180,9 +180,7 @@ const server=http.createServer(async(req,res)=>{
         if(imageQueue.running||postProcessing||startingQueue)throw new Error('Wait for the current operation before editing prompts.');
         reply(res,200,await draftQueue.update(await body(req)));return;
       }
-      if(url.pathname==='/api/extension/info'&&req.method==='GET'){reply(res,200,await extensionInfo(root,stateRoot));return;}
-      if(url.pathname==='/api/extension/folder'&&req.method==='POST'){await openExtensionFolder(root,stateRoot);reply(res,200,{ok:true});return;}
-      if(url.pathname==='/api/extension/manager'&&req.method==='POST'){await openExtensionManager(root,stateRoot);reply(res,200,{ok:true});return;}
+      if(url.pathname==='/api/extension/info'&&req.method==='GET'){reply(res,200,await extensionInfo());return;}
       if(url.pathname==='/api/queue/clear'&&req.method==='POST'){
         if(imageQueue.running||postProcessing||startingQueue||pending.size)throw new Error('Wait for the current operation before clearing images.');
         await archiveQueue();

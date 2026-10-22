@@ -6,9 +6,9 @@ Download Windows Setup or the portable ZIP from [Releases](https://github.com/na
 
 Setup downloads missing Microsoft WebView2 and Visual C++ runtimes from Microsoft and verifies their signatures. Installing the system Visual C++ prerequisite can request administrator approval. Portable users should install [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) and the [Visual C++ x64 runtime](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist) if absent. Model setup is also available as an optional installer task.
 
-Open gflowris, choose **Extension setup → Open extension folder**, and load that folder unpacked in `chrome://extensions` with Developer mode enabled. Sign into Flow through normal Chrome, open a project, and choose **Connect this project** in the extension popup.
+Open gflowris and choose **Extension setup → Download extension ZIP**. The link follows the latest published release. Extract the ZIP to a permanent folder, enter `chrome://extensions` in Chrome's address bar, enable **Developer mode**, and choose **Load unpacked** to select the extracted folder. Sign into Flow through normal Chrome, open a project, and choose **Connect this project** in the extension popup.
 
-The release registers its stable extension ID automatically. No pairing code or extension ID is needed. The app opens its bundled extension folder directly; this does not depend on a Chrome Web Store listing or an earlier GitHub release.
+The release registers its stable extension ID automatically. If the latest download cannot be checked, **View latest release** opens the release page so you can download the extension ZIP under Assets. The desktop download also includes an `extension` folder you can load manually.
 
 For the portable build, extract the whole folder to a writable location and open `gflowris.exe`. Keep the loaded extension folder in place. Opening the app registers the bridge for that location.
 
@@ -43,7 +43,7 @@ These manual native-registration steps apply to source installations. Packaged r
 4. Open **Start.cmd** or the gflowris shortcut.
 5. Sign into Google Flow in normal Chrome and open a project. In **gflowris bridge**, choose **Connect this project**.
 
-No pairing code is required. **Extension setup** in the app opens the included extension files and Chrome's extension manager. The source extension requires Developer mode; it is not silently installed.
+**Extension setup** provides the latest extension download and installation steps. Enter `chrome://extensions` in Chrome's address bar to manage extensions. Source installs use the project's own `extension` folder and development registration above.
 
 The selected project must remain open during a queue. Chrome may ask to allow multiple downloads. Approve it to save a batch. After updating the extension, reload it and the Flow tab, then reconnect.
 

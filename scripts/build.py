@@ -92,8 +92,9 @@ def build_bundle(value, verify_runtime=False):
     manifest_file.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     (bundle / 'Start.cmd').write_text('@echo off\r\nstart "" "%~dp0gflowris.exe"\r\n', encoding='ascii')
     (bundle / 'SETUP.txt').write_text(
-        'Open gflowris.exe. In Extension setup, open the bundled extension folder.\n'
-        'In chrome://extensions enable Developer mode and Load unpacked that folder.\n'
+        'Open gflowris.exe. In Extension setup, download the latest extension ZIP and extract it.\n'
+        'Enter chrome://extensions in Chrome, enable Developer mode, then Load unpacked the extracted folder.\n'
+        'The included extension folder can also be loaded manually.\n'
         'Sign into Google Flow in normal Chrome, open a project, and choose Connect this project.\n'
         'AI models are installed separately from Cutris editor > AI models.\n'
         'Guide: https://github.com/nahidmrdl/gflowris/blob/main/docs/setup.md\n', encoding='utf-8')

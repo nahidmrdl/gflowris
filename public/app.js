@@ -31,12 +31,28 @@ function scheduleSave(){
   saveTimer=setTimeout(()=>{const value={composerDefaults:defaults(),draft:$('#prompts').value,inputMode:$('#input-mode').value,editingId:workspace?.editingId||null};saveChain=saveChain.catch(()=>{}).then(()=>api('settings',value)).then(()=>$('#settings-save-status').textContent='All changes saved.').catch(error=>{$('#settings-save-status').textContent=error.message;});},500);
 }
 function processingSummary(){badges('#processing-summary',[]);}
+let extensionDownloadLoading=false;
+async function loadExtensionDownload(){
+  if(extensionDownloadLoading)return;
+  extensionDownloadLoading=true;$('#extension-download').href='https://github.com/nahidmrdl/gflowris/releases/latest';$('#extension-download').textContent='View latest release';$('#extension-status').textContent='Checking the latest extension download…';
+  try{
+    const info=await api('extension/info');
+    $('#extension-download').href=info.downloadUrl;
+    $('#extension-download').textContent=info.direct?'Download extension ZIP':'View latest release';
+    $('#extension-status').textContent=info.direct?'Latest release: '+info.version:'Open the latest release and download the chrome-extension.zip asset.';
+  }catch{
+    $('#extension-download').href='https://github.com/nahidmrdl/gflowris/releases/latest';
+    $('#extension-download').textContent='View latest release';
+    $('#extension-status').textContent='Open the latest release and download the chrome-extension.zip asset.';
+  }finally{extensionDownloadLoading=false;}
+}
 function showSettings(tab='workspace'){
   $('#settings-cutris-quality').value=$('#cutris-quality').value;$('#settings-cutris-mode').value=$('#cutris-mode').value;
   for(const button of document.querySelectorAll('[data-settings-tab]')){const match=button.dataset.settingsTab===tab;button.classList.toggle('active',match);button.setAttribute('aria-selected',String(match));}
   for(const panel of document.querySelectorAll('[data-settings-panel]'))panel.hidden=panel.dataset.settingsPanel!==tab;
   $('#settings-output').textContent=$('#output').value||'Choose a folder in the workspace.';
   if(!$('#workspace-settings-dialog').open)$('#workspace-settings-dialog').showModal();
+  if(tab==='connection')loadExtensionDownload();
 }
 async function update(){
   try{
@@ -210,6 +226,5 @@ $('#history-open').onclick=async()=>{try{const history=await api('history');$('#
 function releasePreviews(){for(const url of previews.values())URL.revokeObjectURL(url);previews.clear();preview=null;}
 $('#clear-images').onclick=async()=>{try{await api('queue/clear',{});selected.clear();selecting=false;releasePreviews();$('#preview-dialog').close();jobsKey='';await update();message('Images cleared from this view. Your files and recent queues are kept.');}catch(error){message(error.message,true);}};
 $('#settings-default-folder').onclick=async()=>{try{const value=await api('output/default');await api('settings',{outputFolder:value.folder});delete $('#output').dataset.edited;await update();$('#settings-output').textContent=$('#output').value;message('Default output folder selected. It will be created when needed.');}catch(error){message(error.message,true);}};
-for(const [id,action]of [['extension-folder','folder'],['extension-manager','manager']])$('#'+id).onclick=async()=>{try{await api('extension/'+action,{});$('#extension-status').textContent=action==='folder'?'Extension folder opened. In Chrome choose Load unpacked and select this folder.':'Chrome extensions opened. Enable Developer mode and choose Load unpacked.';}catch(error){$('#extension-status').textContent=error.message;}};
 workspace=createQueueWorkspace({api,getValues:defaults,setValues:setComposerValues,notice:message,isActive:active,saveComposer:scheduleSave,onRun:runDraft,onChange:runControls});
 update().then(checkCutris);setInterval(update,1800);
