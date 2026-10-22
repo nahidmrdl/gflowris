@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows.Forms;
 using System.Reflection;
+using System.Threading;
 [assembly: AssemblyTitle("gflowris")]
 [assembly: AssemblyProduct("gflowris")]
 [assembly: AssemblyCompany("gflowris contributors")]
@@ -10,6 +11,12 @@ class AppLauncher {
     [STAThread]
     static int Main(string[] args) {
         try {
+            try {
+                using (Mutex.OpenExisting(@"Local\gflowris.Maintenance")) {
+                    MessageBox.Show("Wait for gflowris setup to finish, then open the app.", "gflowris", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return 3;
+                }
+            } catch (WaitHandleCannotBeOpenedException) {}
             var root = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             var python = Path.Combine(root, "runtime", "python", "pythonw.exe");
             var script = Path.Combine(root, "scripts", "launch.py");

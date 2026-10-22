@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Stop background helpers during updates and uninstall to release locked files.
+- Protect open edits and active queues during setup; keep the Chrome extension installed.
+
 ## Initial release
 
 - Windows desktop workspace with a Chrome extension and Native Messaging.

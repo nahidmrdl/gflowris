@@ -59,7 +59,7 @@ Open **Cutris editor → AI models** to install or repair models. The same model
 
 ## Updates and troubleshooting
 
-Save edits and finish or cancel any active queue before updating. Install over the current app, then reload the extension, reload Flow, and reconnect. Packaged releases keep the same extension ID. Source installs can have a different development ID. Private settings and queues are kept across updates.
+Save edits, finish or cancel any active queue, and close gflowris before updating. Setup stops the app's background helpers before replacing files; uninstall does the same before removing files. The Chrome extension stays installed. Reload the extension, reload Flow, and reconnect after updating. Packaged releases keep the same extension ID. Source installs can have a different development ID. Private settings and queues are kept across updates.
 
 | Symptom | Action |
 | --- | --- |

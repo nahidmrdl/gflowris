@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Web.Script.Serialization;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Threading;
 
 // Chrome inherits binary stdio handles. Never write diagnostics to standard output.
 class Launcher {
@@ -20,6 +21,9 @@ class Launcher {
     }
     static int Main(string[] args) {
         try {
+            // Chrome may reconnect automatically while setup is replacing files.
+            try { using (Mutex.OpenExisting(@"Local\gflowris.Maintenance")) { return 3; } }
+            catch (WaitHandleCannotBeOpenedException) {}
             Trace("Started; arguments="+args.Length);
             if (args.Length < 1) return 2;
             var folder = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);

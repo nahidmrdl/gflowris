@@ -14,6 +14,19 @@ ROOT = Path(__file__).resolve().parent
 PRIVATE = ROOT / ".local" / "runtime.json"
 STATE = Path(json.loads(PRIVATE.read_text(encoding="utf-8-sig"))["stateRoot"]) if PRIVATE.is_file() else Path(os.environ.get("LOCALAPPDATA", Path.home() / ".local" / "share")) / "AutomationFlowGen"
 
+# Keep the handle for the process lifetime so setup asks the user to save and
+# close the editor rather than terminating a window with unsaved work.
+_desktop_mutex = None
+if os.name == 'nt':
+    import ctypes
+    from ctypes import wintypes
+    _create_mutex = ctypes.WinDLL('kernel32', use_last_error=True).CreateMutexW
+    _create_mutex.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
+    _create_mutex.restype = wintypes.HANDLE
+    _desktop_mutex = _create_mutex(None, False, r'Local\gflowris.Desktop')
+    if not _desktop_mutex:
+        raise ctypes.WinError(ctypes.get_last_error())
+
 
 class DesktopBridge:
     """One desktop window for the queue and the complete Cutris workspace."""

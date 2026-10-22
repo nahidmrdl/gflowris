@@ -86,6 +86,7 @@ def build_bundle(value, verify_runtime=False):
     if ''.join(chr(97 + int(n, 16)) for n in hashed) != identity['id']:
         raise RuntimeError('The stable extension key and ID do not match.')
     shutil.copyfile(ROOT / 'packaging/extension-identity.json', bundle / 'packaging/extension-identity.json')
+    shutil.copyfile(ROOT / 'packaging/stop-runtime.ps1', bundle / 'packaging/stop-runtime.ps1')
     manifest_file = bundle / 'extension/manifest.json'
     manifest = json.loads(manifest_file.read_text())
     manifest['key'] = identity['key']

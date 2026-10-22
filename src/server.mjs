@@ -28,6 +28,7 @@ let postProcessing=false,mutationInProgress=false;
 const mutationRoutes=new Set(['/api/run','/api/download-existing','/api/resume','/api/history/select','/api/queue/clear','/api/discover','/api/command','/api/cutris/remove','/api/cutris/refresh','/api/cutris/sync','/api/cutris/batch','/api/reset-pairing','/api/capabilities']);
 let postProgress=null,startingQueue=false,startingController=null;
 let desktopSeen=0,focusRequest=0,settingsWrites=Promise.resolve();
+let shuttingDown=false;
 let extensionToken=null, extensionOrigin=null, lastSeen=0, snapshot=null, commands=[], pending=new Map();
 let targetTab=null;
 await fs.mkdir(stateRoot,{recursive:true});
@@ -98,6 +99,7 @@ function publicState(){return {connected:Date.now()-lastSeen<10000,paired:!!exte
 const server=http.createServer(async(req,res)=>{
   let reserved=false;
   try{
+    if(shuttingDown){reply(res,503,{error:'gflowris is closing for setup.'});return;}
     if(req.headers.host!==`127.0.0.1:${port}`){reply(res,403,{error:'Invalid host.'});return;}
     const url=new URL(req.url,origin),requestOrigin=req.headers.origin;
     const isExtension=/^chrome-extension:\/\/[a-p]{32}$/.test(requestOrigin||'');
@@ -167,6 +169,15 @@ const server=http.createServer(async(req,res)=>{
       if(!auth(req,uiToken)){reply(res,401,{error:'Open the dashboard using Start.cmd.'});return;}
       if(req.method==='POST'&&mutationRoutes.has(url.pathname)){if(mutationInProgress)throw new Error('Wait for the current operation to finish.');mutationInProgress=true;reserved=true;}
       if(url.pathname==='/api/state'&&req.method==='GET'){reply(res,200,publicState());return;}
+      if(url.pathname==='/api/shutdown'&&req.method==='POST'){
+        if(isExtension||Date.now()-desktopSeen<10000||imageQueue.running||postProcessing||startingQueue||mutationInProgress||pending.size||syncing){reply(res,409,{error:'Save edits, stop the queue, and close gflowris before running setup.'});return;}
+        shuttingDown=true;
+        await Promise.allSettled([queueWrites,settingsWrites,draftQueue.writes]);
+        reply(res,200,{ok:true});
+        server.close(()=>process.exit(0));server.closeIdleConnections();
+        // A stale connection must not keep installation files open indefinitely.
+        setTimeout(()=>{server.closeAllConnections();process.exit(0);},1500).unref();return;
+      }
       if(url.pathname==='/api/cancel'&&req.method==='POST'){
         const data=await body(req),wasPreparing=startingQueue||data.preparing===true;
         startingController?.abort(cancellationError());
