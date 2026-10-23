@@ -30,7 +30,7 @@ export async function defaultOutputFolder({platform=process.platform,home=os.hom
 export async function prepareOutputFolder(folder){
   try{
     const folders=await exportFolders(folder);
-    for(const target of [folders.originals,folders.cutouts]){
+    for(const target of [folders.originals,folders.cutouts,folders.downloads]){
       const probe=path.join(target,'.gflowris-write-'+randomUUID()+'.tmp');
       let handle;
       try{handle=await fs.open(probe,'wx');}

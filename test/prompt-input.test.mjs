@@ -31,12 +31,13 @@ test('structured image JSON is preserved as one prompt and malformed settings ar
   assert.equal(parsePromptInput('{"prompt":{"scene":"forest"}}')[0].prompt,'{\n  "scene": "forest"\n}');
   for(const source of ['{"prompt":"one"','{"prompt":"one","count":0}','{"prompt":"one","removeBackground":"true"}','{"prompt":"one","settings":[]}'])assert.throws(()=>parsePromptInput(source));
 });
-test('25 independent prompts run sequentially and each waits for its own downloads and processing',async()=>{
+test('25 independent prompts wait for their downloads before advancing and save every requested cutout',async()=>{
   const entries=Array.from({length:25},(_,index)=>({prompt:'Prompt '+index,ratio:index%2?'16:9':'1:1',count:index%3===0?2:1,removeBackground:index%2===0}));
   assert.throws(()=>parsePrompts(JSON.stringify([...entries,{prompt:'26'}])),/25 prompts/);
   const log=[];const queue=new ImageQueue({generate:async item=>{log.push('start '+item.index);return item;},generation:async item=>({complete:true,assets:Array.from({length:item.count},(_,index)=>index)}),download:async(asset,item)=>{log.push('save '+item.index+' '+asset);return {name:'image'};},postprocess:async(file,item)=>{log.push('cut '+item.index);return {name:'cutout'};}});
   await queue.start(parsePrompts(JSON.stringify(entries)));assert.equal(queue.state.status,'complete');assert.equal(queue.state.items.length,25);
-  for(let index=1;index<25;index++){const previous=queue.state.items[index-1];assert(log.indexOf('start '+(index+1))>log.lastIndexOf((previous.removeBackground?'cut ':'save ')+index+(previous.removeBackground?'':' '+(previous.count-1))));}
+  for(let index=1;index<25;index++){const previous=queue.state.items[index-1];assert(log.indexOf('start '+(index+1))>log.lastIndexOf('save '+index+' '+(previous.count-1)));}
+  for(const item of queue.state.items){assert.equal(item.files.length,item.count);if(item.removeBackground)assert(item.files.every(file=>file.cutout));}
 });
 test('draft cards persist exact settings and reject conflicting writes without losing prompts',async t=>{
   const folder=await fs.mkdtemp(path.join(os.tmpdir(),'gflowris-draft-'));t.after(()=>fs.rm(folder,{recursive:true,force:true}));
@@ -55,6 +56,7 @@ test('output defaults follow Windows Pictures redirection and fall back to the c
 test('missing output folders are created and unusable destinations fail before generation',async t=>{
   const folder=await fs.mkdtemp(path.join(os.tmpdir(),'gflowris-output-'));t.after(()=>fs.rm(folder,{recursive:true,force:true}));
   const destination=path.join(folder,'missing','gflowris-images');await prepareOutputFolder(destination);assert.deepEqual((await fs.readdir(destination)).sort(),['cutouts','originals']);
+  assert.deepEqual(await fs.readdir(path.join(folder,'missing','gflowris-downloads')),[]);
   for(const name of ['originals','cutouts'])assert.deepEqual(await fs.readdir(path.join(destination,name)),[]);
   const artwork=path.join(destination,'keep.png');await fs.writeFile(artwork,'keep');await prepareOutputFolder(destination);assert.equal(await fs.readFile(artwork,'utf8'),'keep');
   await assert.rejects(prepareOutputFolder(artwork),/Choose another folder/);

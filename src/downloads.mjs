@@ -14,5 +14,11 @@ export async function saveDownload(filename,folder,marker,naming={}){
   const file=await fs.open(filename,'r');let bytes=Buffer.alloc(32);try{await file.read(bytes,0,32,0);}finally{await file.close();}
   const extension=imageExtension(bytes),folders=await exportFolders(folder);
   const saved=await copyExport(filename,folders.originals,imageStem(naming),extension);
-  return {...saved,outputRoot:folders.outputRoot,exportStem:path.parse(saved.name).name,bytes:stat.size,savedAt:new Date().toISOString()};
+  let download={name:path.basename(filename),path:filename};
+  if(path.resolve(filename)!==path.join(folders.downloads,path.basename(filename))){
+    try{download=await copyExport(filename,folders.downloads,path.parse(filename).name,extension);await fs.unlink(filename);}
+    catch(error){throw new Error('The original is saved, but the browser download could not be moved: '+error.message);}
+    if(path.basename(path.dirname(filename))==='gflowris')await fs.rmdir(path.dirname(filename)).catch(()=>{});
+  }
+  return {...saved,download,outputRoot:folders.outputRoot,exportStem:path.parse(saved.name).name,bytes:stat.size,savedAt:new Date().toISOString()};
 }

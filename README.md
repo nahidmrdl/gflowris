@@ -49,6 +49,8 @@ Originals and earlier edits are preserved. Choose your output folder and auto-cr
 
 Exports use readable names from your prompt titles. Downloads go in `originals`; transparent PNGs and edited versions go in `cutouts`. Duplicate names are numbered automatically.
 
+Raw Flow downloads are kept in `gflowris-downloads` beside your output folder. By default, Pictures contains `gflowris-downloads` and `gflowris-images`; completed imports no longer accumulate in Chrome's Downloads folder.
+
 For the standalone desktop app, CLI/API, and detailed editing guides, visit the [Cutris repository](https://github.com/nahidmrdl/cutris).
 
 ## Get started

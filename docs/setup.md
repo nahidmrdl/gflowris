@@ -53,6 +53,8 @@ The default `gflowris-images` folder follows Windows' Pictures location. If Wind
 
 New exports are named from the prompt title, with Flow's image title as the fallback. The output folder contains `originals` for downloaded images and `cutouts` for transparent PNGs and saved edits. Multi-image prompts, repeated titles, reprocessing, and further edits receive numeric suffixes so existing files are kept.
 
+Completed browser downloads are moved into a sibling `gflowris-downloads` folder after their named original is saved. With the default location, Pictures contains `gflowris-downloads` for raw Flow downloads and `gflowris-images` for organized originals and cutouts. Chrome temporarily downloads into `Downloads/gflowris` during transfers; the app removes each imported file and removes the landing folder when it is empty. Changing the output folder also places the download archive next to that folder. Existing files are never overwritten.
+
 **Browse** opens a native folder picker in the desktop app. **Open folder** shows the output folder in Windows Explorer. Folder errors appear in the workspace or settings dialog.
 
 Open **Cutris editor → AI models** to install or repair models. The same models and engine are used by automatic processing and the embedded editor. A standalone Cutris desktop installation is optional.

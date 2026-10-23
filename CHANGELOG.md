@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Keep raw Flow downloads in `gflowris-downloads` beside the image output folder, removing browser landing copies only after saving the original and archive.
 - Reset stale Flow generation tracking after cancellation so a new queue can start without reloading the page.
 - Start the next Flow prompt after downloads finish while local background removal continues.
 - Process cutouts one at a time and keep the queue running until every requested cutout is saved.

@@ -18,9 +18,9 @@ export function imageStem({title,flowTitle,prompt,index=0,count=1}={}){
 
 export async function exportFolders(root){
   if(typeof root!=='string'||!path.isAbsolute(root))throw new Error('Choose an absolute output folder.');
-  const outputRoot=path.resolve(root),originals=path.join(outputRoot,'originals'),cutouts=path.join(outputRoot,'cutouts');
-  await Promise.all([fs.mkdir(originals,{recursive:true}),fs.mkdir(cutouts,{recursive:true})]);
-  return {outputRoot,originals,cutouts};
+  const outputRoot=path.resolve(root),originals=path.join(outputRoot,'originals'),cutouts=path.join(outputRoot,'cutouts'),downloads=path.join(path.dirname(outputRoot),'gflowris-downloads');
+  await Promise.all([fs.mkdir(originals,{recursive:true}),fs.mkdir(cutouts,{recursive:true}),fs.mkdir(downloads,{recursive:true})]);
+  return {outputRoot,originals,cutouts,downloads};
 }
 
 async function uniqueFile(folder,stem,extension,save){
