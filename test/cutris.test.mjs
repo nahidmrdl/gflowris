@@ -7,6 +7,7 @@ import path from 'node:path';
 import {CutrisClient} from '../src/cutris-client.mjs';
 import {ImageQueue,parsePrompts} from '../src/jobs.mjs';
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCzkAAAAASUVORK5CYII=','base64');
+const deferred=()=>{let resolve;return {promise:new Promise(complete=>resolve=complete),resolve:value=>resolve(value)};};
 
 test('an open Cutris desktop takes priority and receives editor requests',async t=>{
   const folder=await fs.mkdtemp(path.join(os.tmpdir(),'flow-cutris-test-'));
@@ -27,29 +28,35 @@ test('an open Cutris desktop takes priority and receives editor requests',async 
   assert.equal((await client.requestEditor({projectId:'a'.repeat(32)})).embedded,false);assert.equal(opened,'a'.repeat(32));
 });
 
-test('four cutouts finish before the next prompt, saved edits return, and originals survive API failures',async t=>{
+test('original downloads advance while Cutris stays serial, saved edits return, and originals survive API failures',async t=>{
   const folder=await fs.mkdtemp(path.join(os.tmpdir(),'flow-cutris-test-'));
-  let failure=false,requests=0;
+  const firstRequest=deferred(),releaseFirst=deferred(),lastDownloaded=deferred();
+  let failure=false,requests=0,activeRequests=0,maximumRequests=0;
   const server=http.createServer(async(req,res)=>{
     assert.equal(req.headers.authorization,'Bearer fixture-key');
     if(req.url==='/v1/models'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({models:{detail:true,fast:false}}));return;}
     if(failure){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({detail:'Fixture model unavailable'}));return;}
     if(req.method==='POST'){
       const parts=[];for await(const part of req)parts.push(part);const body=Buffer.concat(parts).toString();
-      assert(body.includes('name="editable"\r\n\r\ntrue'));assert(body.includes('name="auto_crop"\r\n\r\ntrue'));requests++;
+      assert(body.includes('name="editable"\r\n\r\ntrue'));assert(body.includes('name="auto_crop"\r\n\r\ntrue'));requests++;activeRequests++;maximumRequests=Math.max(maximumRequests,activeRequests);
+      if(requests===1){firstRequest.resolve();await releaseFirst.promise;}
     }
     res.writeHead(200,{'Content-Type':'image/png','X-Cutris-Project':'a'.repeat(32),'X-Cutris-Width':'1','X-Cutris-Height':'1','X-Cutris-Revision':'1'});res.end(png);
+    if(req.method==='POST')activeRequests--;
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  t.after(async()=>{await new Promise(resolve=>server.close(resolve));if(path.dirname(folder)!==path.resolve(os.tmpdir())||!path.basename(folder).startsWith('flow-cutris-test-'))throw new Error('Unexpected cleanup path.');await fs.rm(folder,{recursive:true,force:true});});
+  t.after(async()=>{releaseFirst.resolve();await new Promise(resolve=>server.close(resolve));if(path.dirname(folder)!==path.resolve(os.tmpdir())||!path.basename(folder).startsWith('flow-cutris-test-'))throw new Error('Unexpected cleanup path.');await fs.rm(folder,{recursive:true,force:true});});
   const client=new CutrisClient(folder);client.connect=async()=>({origin:'http://127.0.0.1:'+server.address().port,headers:{Authorization:'Bearer fixture-key'}});
   assert((await client.preflight('detail')).ready);await assert.rejects(()=>client.preflight('fast'),/Install/);
-  const order=[];
-  const queue=new ImageQueue({generate:async item=>{order.push('generate '+item.index);return {};},generation:async(_,item)=>({complete:true,assets:Array.from({length:item.count},(_,i)=>i)}),download:async(_,item,index)=>{
-    const name=item.index+'-'+index+'.png',filename=path.join(folder,name);await fs.writeFile(filename,png);return {name,path:filename};
+  const order=[];let settled=false;
+  const queue=new ImageQueue({generate:async item=>{order.push('generate '+item.index);return {};},generation:async(ticket,item)=>({complete:true,assets:Array.from({length:item.count},(asset,index)=>index)}),download:async(asset,item,index)=>{
+    const name=item.index+'-'+index+'.png',filename=path.join(folder,name);await fs.writeFile(filename,png);order.push('original '+item.index+'-'+index);if(item.index===2&&index===1)lastDownloaded.resolve();return {name,path:filename};
   },postprocess:async(file,item)=>{const result=await client.remove(file,{autoCrop:item.autoCrop});order.push('cutout '+item.index);return result;}});
-  await queue.start(parsePrompts('[{"prompt":"four","count":4},{"prompt":"two","count":2}]',{removeBackground:true}));
-  assert.equal(queue.state.status,'complete');assert.equal(requests,6);assert.equal(order.indexOf('generate 2'),5);
+  const running=queue.start(parsePrompts('[{"prompt":"four","count":4},{"prompt":"two","count":2}]',{removeBackground:true}));running.then(()=>settled=true);
+  await lastDownloaded.promise;await firstRequest.promise;await new Promise(resolve=>setImmediate(resolve));
+  assert(order.indexOf('generate 2')>order.indexOf('original 1-3'));assert.equal(order.filter(entry=>entry.startsWith('cutout ')).length,0);assert.equal(requests,1);assert.equal(settled,false);assert.equal(queue.state.status,'running');assert.deepEqual(queue.state.items.map(item=>item.files.length),[4,2]);
+  releaseFirst.resolve();await running;
+  assert.equal(queue.state.status,'complete');assert.equal(requests,6);assert.equal(maximumRequests,1);assert.deepEqual(order.filter(entry=>entry.startsWith('cutout ')),['cutout 1','cutout 1','cutout 1','cutout 1','cutout 2','cutout 2']);
   for(const item of queue.state.items)for(const file of item.files){assert.deepEqual(await fs.readFile(file.path),png);assert(file.cutout.projectId);assert.notEqual(file.path,file.cutout.path);}
   const file=queue.state.items[0].files[0];const edited=await client.refresh(file.cutout);assert.equal(edited.revision,1);assert.notEqual(edited.path,file.cutout.path);assert.deepEqual(await fs.readFile(file.cutout.path),png);
   failure=true;await assert.rejects(()=>client.remove(file),/Fixture model unavailable/);assert.deepEqual(await fs.readFile(file.path),png);

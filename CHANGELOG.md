@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reset stale Flow generation tracking after cancellation so a new queue can start without reloading the page.
+- Start the next Flow prompt after downloads finish while local background removal continues.
+- Process cutouts one at a time and keep the queue running until every requested cutout is saved.
+- Keep pause, cancellation, saved originals, and per-image errors working across generation and background removal.
 - Name exported images from prompt or Flow titles and separate originals from cutouts and edited PNGs.
 - Show all JSON settings and available Flow choices, with examples for background modes, quality, and auto crop.
 - Display background treatment and AI quality on each prompt card.

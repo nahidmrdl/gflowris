@@ -18,7 +18,7 @@
     return {time:Date.now(),version:chrome.runtime.getManifest().version,page:location.origin+location.pathname,controls,images,dialogs,tiles};
   }
   function get(key){const el=refs.get(key);if(!el?.isConnected||!visible(el))throw new Error('Control changed. Inspect Flow again.');return el;}
-  let activeExecution=null,checkingCancellation=false;
+  let activeExecution=null,checkingCancellation=false,trackedQueue=null;
   async function assertActive(){
     const execution=activeExecution;if(!execution)return;
     execution.controller.signal.throwIfAborted();
@@ -64,6 +64,10 @@
       const include=Date.now()-lastSnapshot>3500;const outgoing=results;
       const response=await chrome.runtime.sendMessage({type:'poll',snapshot:include?snapshot():undefined,results:outgoing});
       if(response?.ok)results=results.filter(item=>!outgoing.includes(item));
+      if(response?.ok&&response.queue){
+        if(response.queue.id!==trackedQueue||response.queue.status!=='running')adapter.cancel();
+        trackedQueue=response.queue.id;
+      }
       if(include)lastSnapshot=Date.now();
       if(response?.command){const cmd=response.command;try{results.push({id:cmd.id,result:await execute(cmd)});}catch(e){results.push({id:cmd.id,error:e.message});}}
     }catch{}finally{busy=false;}

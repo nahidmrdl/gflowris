@@ -33,7 +33,7 @@ Create batches of icons, product images, portraits, and artwork from your Google
 
 Add up to **25 prompts** with shared or individual settings. Choose the model, aspect ratio, image count, download size, and background-removal options for each card. Import text or JSON, duplicate cards, reorder them, or apply settings to a selection.
 
-Each prompt waits for generation, downloads, and optional Cutris processing before the next begins. Pause after the active prompt or cancel the remaining queue. Drafts are saved between sessions.
+After all images for a prompt finish downloading, the next prompt starts while Cutris removes backgrounds locally. Cutris processes one image at a time, and the queue finishes when all requested cutouts are saved. Pause finishes the active prompt and pending cutouts before waiting, or cancel the remaining work. Drafts are saved between sessions.
 
 ![Prompt queue with individual settings](docs/assets/queue.png)
 

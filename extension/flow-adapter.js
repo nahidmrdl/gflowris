@@ -50,6 +50,8 @@ globalThis.createFlowPrototypeAdapter=({activate,visible,startGeneration,startTi
     return {models,ratios,counts,resolutions,resolutionOptions,defaults:{model:selected,ratio:chosenRatio?content(chosenRatio).match(/\d+:\d+$/)[0]:'1:1',count:chosenCount?Number(content(chosenCount).slice(1)):1,resolution:resolutions.includes('2K')?'2K':'1K'}};
   }
   async function generate({item}){
+    const signal=getSignal();
+    signal?.throwIfAborted();
     project();
     if([...tickets.values()].some(ticket=>!ticket.finished))throw new Error('A generation is already being tracked.');
     if(list('[role="progressbar"]').length)throw new Error('Flow already has a generation in progress. Wait for it to finish.');
@@ -60,12 +62,13 @@ globalThis.createFlowPrototypeAdapter=({activate,visible,startGeneration,startTi
       if(radio(value).getAttribute('aria-checked')!=='true')throw new Error('Flow did not apply '+expected+'.');
     }
     await closeSettings();
-    getSignal()?.throwIfAborted();await assertActive();
+    signal?.throwIfAborted();await assertActive();signal?.throwIfAborted();
     const editor=label('What do you want to create?');
     if(editor.textContent.trim())throw new Error('Flow already has a prompt in its composer. Clear it or save it before running the queue.');
     editor.focus();const selection=getSelection(),range=document.createRange();range.selectNodeContents(editor);selection.removeAllRanges();selection.addRange(range);
     if(!document.execCommand('insertText',false,item.prompt))throw new Error('Could not enter the prompt.');
     await waitFor(()=>promptText(editor.innerText??editor.textContent)===promptText(item.prompt)&&!label('Start generation').disabled,'Flow did not accept the prompt.');
+    signal?.throwIfAborted();
     const ticket={id:crypto.randomUUID(),page:location.origin+location.pathname,before:mediaIds(),beforeTiles:tiles().map(tileId),submitted:Date.now(),prompt:item.prompt,finished:false};
     tickets.set(ticket.id,ticket);
     // Exactly one activation. A missing start signal stops the queue instead of clicking again.

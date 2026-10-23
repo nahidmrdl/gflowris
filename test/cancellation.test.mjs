@@ -15,16 +15,31 @@ const deferred=()=>{let resolve;return {promise:new Promise(r=>resolve=r),resolv
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCzkAAAAASUVORK5CYII=','base64');
 
 for(const stage of ['generate','generation','download','postprocess'])test('cancel interrupts '+stage+', preserves completed files, and ignores late results',async()=>{
-  const entered=deferred(),late=deferred(),log=[];let signal;
-  const driver={generate:async item=>{log.push(item.index);return {};},generation:async()=>({complete:true,assets:['asset']}),download:async()=>({name:'original.png'}),postprocess:async()=>({name:'cutout.png'})};
+  const entered=deferred(),late=deferred(),lateGeneration=deferred(),log=[];let signal;
+  const driver={generate:async item=>{log.push(item.index);if(stage==='postprocess'&&item.index===2)return lateGeneration.promise;return {};},generation:async()=>({complete:true,assets:['asset']}),download:async()=>({name:'original.png'}),postprocess:async()=>({name:'cutout.png'})};
   const original=driver[stage];driver[stage]=async(...args)=>{if(stage==='generate')log.push(args[0].index);signal=args.at(-1).signal;entered.resolve();return late.promise;};
   const queue=new ImageQueue(driver),running=queue.start(parsePrompts('first\n---PROMPT---\nsecond',{removeBackground:true}));
   await entered.promise;assert.equal(queue.cancel(),true);await Promise.race([running,pause(250).then(()=>{throw new Error('Cancellation must not wait for the blocked operation.');})]);
   assert(signal.aborted);assert.equal(queue.running,null);assert.equal(queue.state.status,'cancelled');assert(queue.state.items.every(item=>item.status==='cancelled'));
   if(stage==='postprocess'){assert.equal(queue.state.items[0].files[0].name,'original.png');assert.equal(queue.state.items[0].files[0].cutrisError,undefined);}
   else assert.equal(queue.state.items[0].files.length,0);
-  const cancelled=JSON.stringify(queue.state);late.resolve(stage==='generation'?{complete:true,assets:['late']}:stage==='download'?{name:'late.png'}:{});await pause(0);assert.equal(JSON.stringify(queue.state),cancelled);assert.deepEqual(log,[1]);
+  const cancelled=JSON.stringify(queue.state);late.resolve(stage==='generation'?{complete:true,assets:['late']}:stage==='download'?{name:'late.png'}:{});lateGeneration.resolve({});await pause(0);assert.equal(JSON.stringify(queue.state),cancelled);if(stage==='postprocess'){assert.deepEqual(log.slice(0,1),[1]);assert(log.length<=2);}else assert.deepEqual(log,[1]);
   driver[stage]=original;await queue.start(parsePrompts('A fresh explicitly started queue',{removeBackground:true}));assert.equal(queue.state.status,'complete');
+});
+
+test('cancel drains browser progress promptly and never starts queued Cutris tasks or accepts late cutouts',async context=>{
+  const entered=deferred(),late=deferred(),lastDownloaded=deferred(),processed=[],signals=[];
+  context.after(()=>late.resolve({name:'late-cutout.png'}));
+  const queue=new ImageQueue({
+    generate:async()=>({}),generation:async()=>({complete:true,assets:['asset']}),
+    download:async(asset,item)=>{if(item.index===2)lastDownloaded.resolve();return {name:'original-'+item.index+'.png'};},
+    postprocess:async(file,item,{signal})=>{processed.push(file.name);signals.push(signal);entered.resolve();return late.promise;}
+  });
+  const running=queue.start(parsePrompts('one\n---PROMPT---\ntwo',{removeBackground:true}));
+  await entered.promise;await lastDownloaded.promise;await pause(0);assert.deepEqual(processed,['original-1.png']);assert(queue.state.items.every(item=>item.files.length===1));
+  assert(queue.cancel());await Promise.race([running,pause(250).then(()=>{throw new Error('Cancellation must not wait for Cutris.');})]);
+  assert(signals.every(signal=>signal.aborted));assert.equal(queue.running,null);assert.equal(queue.state.status,'cancelled');assert(queue.state.items.every(item=>item.status==='cancelled'));assert(queue.state.items.every(item=>item.files[0].cutout===undefined&&item.files[0].cutrisError===undefined));
+  const cancelled=JSON.stringify(queue.state);late.resolve({name:'late-cutout.png'});await pause(0);assert.equal(JSON.stringify(queue.state),cancelled);assert.deepEqual(processed,['original-1.png']);
 });
 
 test('cancelled downloads retain earlier saved images, and cancelled paused queues cannot resume',async()=>{
@@ -66,7 +81,8 @@ test('cancel revokes leased and queued bridge work, rejects late downloads, and 
   await api('run',{prompts:'first\n---PROMPT---\nsecond',defaults});
   let command;for(let i=0;i<50&&!command;i++){command=(await bridge('poll',{tabId:5})).command;if(!command)await pause(10);}assert.equal(command.type,'generate');assert((await bridge('command-state',{tabId:5,id:command.id})).active);
   assert.equal((await api('cancel',{})).cancelled,true);assert.equal((await api('state')).queue.status,'cancelled');assert.equal((await bridge('command-state',{tabId:5,id:command.id})).active,false);
-  assert.equal((await bridge('poll',{tabId:5,results:[{id:command.id,result:{id:'late-ticket',page}}]})).command,null);assert.equal((await api('state')).queue.status,'cancelled');
+  const cancelledPoll=await bridge('poll',{tabId:5,results:[{id:command.id,result:{id:'late-ticket',page}}]});
+  assert.equal(cancelledPoll.command,null);assert.equal(cancelledPoll.queue.status,'cancelled');assert.equal(cancelledPoll.queue.id,(await api('state')).queue.items[0].id);assert.equal((await api('state')).queue.status,'cancelled');
   await api('download-existing',{page,mediaId:'fixture',resolution:'2K'});let download;for(let i=0;i<50&&!download;i++){download=(await bridge('poll',{tabId:5})).command;if(!download)await pause(10);}assert.equal(download.type,'download');const marker=download.payload.marker;
   await api('cancel',{});assert.deepEqual((await bridge('poll',{tabId:5})).activeDownloadMarkers,[]);assert.equal((await request('/bridge/download',bridgeHeaders,{marker,filename:path.join(folder,'untrusted.png')})).status,409);
   await bridge('select-tab',{tabId:6,page:'https://flow.google.com/project/new-project'});assert.equal((await api('cancel',{})).cancelled,false);

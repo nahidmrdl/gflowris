@@ -122,3 +122,40 @@ test('4K becomes selectable when the account download menu enables it',async()=>
     assert.equal(capabilities.resolutionOptions.find(option=>option.value==='4K').enabled,true);
   }finally{await browser.close();}
 });
+
+test('cancelling tracking preserves the Flow progress guard and permits a fresh generation after it finishes',async()=>{
+  const {browser,page}=await setup();
+  try{
+    await page.evaluate(()=>adapter.generate({item:{prompt:'First icon',model:'Nano Banana 2.1',ratio:'1:1',count:1}}));
+    await page.evaluate(()=>{const progress=document.createElement('div');progress.setAttribute('role','progressbar');progress.textContent='Generating';document.body.append(progress);adapter.cancel();});
+    const error=await page.evaluate(async()=>{try{await adapter.generate({item:{prompt:'Next icon',model:'Nano Banana 2.1',ratio:'1:1',count:1}});}catch(error){return error.message;}});
+    assert.match(error,/generation in progress/);assert.equal(await page.evaluate(()=>activationStats.generations),1);
+    await page.evaluate(()=>document.querySelector('[role="progressbar"]').remove());
+    await page.waitForFunction(()=>document.querySelector('img[data-media-id="fixture-asset"]')?.complete);
+    const ticket=await page.evaluate(()=>adapter.generate({item:{prompt:'Next icon',model:'Nano Banana 2.1',ratio:'1:1',count:1}}));
+    assert(ticket.id);assert.equal(await page.evaluate(()=>activationStats.generations),2);
+  }finally{await browser.close();}
+});
+
+test('a cancelled asynchronous generation cannot type or create fresh tracking when a new signal becomes active',async()=>{
+  const {browser,page}=await setup();
+  try{
+    await page.evaluate(()=>{
+      window.activeController=new AbortController();window.settingsClosed=false;window.heldOnce=false;window.finalCheckEntered=false;
+      window.activeCheck=new Promise(resolve=>window.releaseActiveCheck=resolve);
+      window.adapter=createFlowPrototypeAdapter({
+        activate:async element=>{const closing=element.getAttribute('aria-label')==='Settings trigger'&&!document.querySelector('#settings').hidden;await FlowPrototypeActivate(element);if(closing)settingsClosed=true;},
+        visible:element=>element.getClientRects().length>0&&getComputedStyle(element).visibility!=='hidden',
+        getSignal:()=>activeController.signal,
+        assertActive:async()=>{if(settingsClosed&&!heldOnce){heldOnce=true;finalCheckEntered=true;await activeCheck;}},
+        startGeneration:()=>FlowPrototypeActivate(document.querySelector('[aria-label="Start generation"]')),startTimeout:350
+      });
+      window.pendingGeneration=adapter.generate({item:{prompt:'Cancelled icon',model:'Nano Banana 2.1',ratio:'1:1',count:1}}).then(ticket=>({ticket}),error=>({error:error.message}));
+    });
+    await page.waitForFunction(()=>finalCheckEntered);
+    const outcome=await page.evaluate(async()=>{adapter.cancel();activeController.abort(new DOMException('Queue cancelled.','AbortError'));activeController=new AbortController();releaseActiveCheck();return pendingGeneration;});
+    assert.match(outcome.error,/cancel/i);assert.equal(outcome.ticket,undefined);assert.equal(await page.locator('[contenteditable]').textContent(),'');assert.equal(await page.evaluate(()=>activationStats.generations),0);
+    const ticket=await page.evaluate(()=>adapter.generate({item:{prompt:'Fresh icon',model:'Nano Banana 2.1',ratio:'1:1',count:1}}));
+    assert(ticket.id);assert.equal(await page.evaluate(()=>activationStats.generations),1);
+  }finally{await browser.close();}
+});

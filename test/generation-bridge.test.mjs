@@ -87,3 +87,26 @@ test('the native heartbeat cancels a content command even while its normal poll 
   listener({type:'native-tick'},{id:'extension'},()=>{});await new Promise(resolve=>setImmediate(resolve));
   assert.equal(cancelled,1);assert.equal(reports.length,1);assert.match(reports[0].error,/cancelled/);
 });
+
+for(const transition of ['cancelled','replaced'])test('idle generation tracking resets when its queue is '+transition,async()=>{
+  let listener,polls=0,generated=0,cancelled=0,tracked=false;const reports=[];
+  const source=await fs.readFile(new URL('../extension/content.js',import.meta.url),'utf8');
+  const chrome={runtime:{id:'extension',getManifest:()=>({version:'0.3.3'}),onMessage:{addListener:callback=>listener=callback},sendMessage:async message=>{
+    if(message.type==='generation-ready')return {ok:true,ready:true,protocol:1};
+    if(message.type==='command-state')return {ok:true,active:true};
+    if(message.type==='poll'){
+      reports.push(...message.results);polls++;
+      if(polls===1)return {ok:true,queue:{id:'queue-a',status:'running'},command:{id:'first',type:'generate',payload:{}}};
+      if(transition==='cancelled'&&polls===2)return {ok:true,queue:{id:'queue-a',status:'cancelled'},command:null};
+      const secondPoll=transition==='cancelled'?3:2;
+      return {ok:true,queue:{id:'queue-b',status:'running'},command:polls===secondPoll?{id:'second',type:'generate',payload:{}}:null};
+    }
+    throw new Error('Unexpected message: '+message.type);
+  }}};
+  vm.runInNewContext(source,{chrome,location:{origin:'https://flow.google.com',pathname:'/project/fixture',href:page},document:{querySelectorAll:()=>[]},
+    createFlowPrototypeAdapter:()=>({generate:async()=>{if(tracked)throw new Error('A generation is already being tracked.');tracked=true;generated++;return {id:'ticket-'+generated};},cancel:()=>{tracked=false;cancelled++;}}),
+    FlowPrototypeActivate(){},WeakMap,Map,Date,AbortController,DOMException});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(generated,1);const beforeCancellation=cancelled;
+  for(let poll=0;poll<3;poll++){listener({type:'native-tick'},{id:'extension'},()=>{});await new Promise(resolve=>setImmediate(resolve));}
+  assert.equal(generated,2);assert(cancelled>beforeCancellation);assert.equal(reports.length,2);assert.equal(reports[0].result.id,'ticket-1');assert.equal(reports[1].result.id,'ticket-2');assert(reports.every(report=>report.error===undefined));
+});

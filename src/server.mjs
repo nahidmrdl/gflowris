@@ -158,7 +158,7 @@ const server=http.createServer(async(req,res)=>{
       targetTab=data.tabId;lastSeen=Date.now();
       if(data.snapshot)snapshot=data.snapshot;
       for(const item of data.results||[]){const p=pending.get(item.id);if(p){clearTimeout(p.timer);pending.delete(item.id);item.error?p.reject(new Error(safeText(item.error))):p.resolve(item.result);}}
-      reply(res,200,{command:commands.shift()||null,activeDownloadMarkers:[...downloads.entries()].filter(([,value])=>!value.settled).map(([marker])=>marker)});return;
+      reply(res,200,{command:commands.shift()||null,queue:{id:imageQueue.state.items[0]?.id||null,status:imageQueue.state.status},activeDownloadMarkers:[...downloads.entries()].filter(([,value])=>!value.settled).map(([marker])=>marker)});return;
     }
     if(url.pathname==='/bridge/command-state'&&req.method==='POST'){
       if(!isExtension||requestOrigin!==extensionOrigin||!auth(req,extensionToken)){reply(res,401,{error:'Extension is not paired.'});return;}
