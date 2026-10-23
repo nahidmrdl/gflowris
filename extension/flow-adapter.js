@@ -52,6 +52,7 @@ globalThis.createFlowPrototypeAdapter=({activate,visible,startGeneration,startTi
   async function generate({item}){
     const signal=getSignal();
     signal?.throwIfAborted();
+    if(location.pathname.includes('/edit/'))await returnToProject();
     project();
     if([...tickets.values()].some(ticket=>!ticket.finished))throw new Error('A generation is already being tracked.');
     if(list('[role="progressbar"]').length)throw new Error('Flow already has a generation in progress. Wait for it to finish.');

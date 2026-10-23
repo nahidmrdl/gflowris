@@ -32,7 +32,8 @@ export class ImageQueue{
     this.state.status='cancelled';this.state.current=null;this.state.background={pending:0,current:null};this.state.message='Queue cancelled. Saved files are kept. An image already submitted to Flow may still finish there.';this.changed();return true;
   }
   async resume(){
-    if(this.running||this.state.status!=='paused')throw new Error('This queue cannot be resumed.');
+    if(this.running||!['paused','cancelled','attention'].includes(this.state.status)||!this.state.items.some(item=>item.status!=='complete'))throw new Error('This queue cannot be resumed.');
+    for(const item of this.state.items)if(item.status!=='complete'){item.status='queued';item.stage='Queued to continue';delete item.cancelledAt;}
     this.pauseRequested=false;this.state.status='running';this.changed();
     this.controller=new AbortController();this.running=this.process(this.controller.signal).finally(()=>{this.running=null;});return this.running;
   }
@@ -54,7 +55,7 @@ export class ImageQueue{
         if(prompt.downloadsFinishedAt&&prompt.status!=='attention')prompt.stage=prompt.backgroundStage;
         if(!flowActive)this.state.current=prompt.id;
         this.changed();
-        try{const cutout=await cancellable(()=>this.driver.postprocess(saved,prompt,{signal}),signal);checkCancellation(signal);saved.cutout=cutout;}
+        try{const cutout=await cancellable(()=>this.driver.postprocess(saved,prompt,{signal}),signal);checkCancellation(signal);saved.cutout=cutout;delete saved.cutrisError;}
         catch(error){
           if(signal.aborted)return;
           saved.cutrisError=error.message;prompt.status='attention';prompt.stage='The original is saved. Cutris: '+error.message;
@@ -70,25 +71,36 @@ export class ImageQueue{
         checkCancellation(signal);
         if(this.pauseRequested||cutrisFailure)break;
         item=prompt;
-        this.state.current=item.id;item.status='running';item.startedAt=new Date(this.clock()).toISOString();item.stage='Setting up Flow';this.changed();
+        this.state.current=item.id;item.status='running';item.startedAt??=new Date(this.clock()).toISOString();item.stage='Setting up Flow';this.changed();
         // A driver must never retry a generation click after an ambiguous response.
-        const ticket=await cancellable(()=>this.driver.generate(item,{signal}),signal);
-        item.generationStartedAt=new Date(this.clock()).toISOString();item.stage='Generating images';this.changed();
-        const deadline=this.clock()+this.generationTimeout;
-        let assets;
-        while(true){
-          const result=await cancellable(()=>this.driver.generation(ticket,item,{signal}),signal);
-          if(result.error)throw new Error(result.error);
-          if(result.complete){assets=result.assets;if(!Array.isArray(assets)||assets.length!==item.count)throw new Error('Flow did not return the requested number of new images. Review the project before retrying.');break;}
-          if(this.clock()>deadline)throw new Error('Generation timed out. Check Flow before starting another queue; no prompt was resubmitted.');
-          await cancellable(()=>this.sleep(this.pollInterval),signal);
+        let assets=item.assets;
+        if(item.files.length<item.count&&!assets){
+          let ticket=item.generationTicket;
+          if(!ticket){
+            if(item.generationStartedAt||item.generationAttemptedAt)throw new Error('This queue has no saved Flow image reference. Save the existing image before continuing; it will not be generated again automatically.');
+            item.generationAttemptedAt=new Date(this.clock()).toISOString();this.changed();
+            ticket=await cancellable(()=>this.driver.generate(item,{signal}),signal);item.generationTicket=ticket;
+            item.generationStartedAt=new Date(this.clock()).toISOString();this.changed();
+          }
+          item.stage='Generating images';this.changed();
+          const deadline=this.clock()+this.generationTimeout;
+          while(true){
+            const result=await cancellable(()=>this.driver.generation(ticket,item,{signal}),signal);
+            if(result.error)throw new Error(result.error);
+            if(result.complete){assets=result.assets;if(!Array.isArray(assets)||assets.length!==item.count)throw new Error('Flow did not return the requested number of new images. Review the project before retrying.');break;}
+            if(this.clock()>deadline)throw new Error('Generation timed out. Check Flow before continuing; no prompt was resubmitted.');
+            await cancellable(()=>this.sleep(this.pollInterval),signal);
+          }
+          item.assets=assets;item.generationFinishedAt=new Date(this.clock()).toISOString();this.changed();
         }
-        item.generationFinishedAt=new Date(this.clock()).toISOString();
-        for(let index=0;index<assets.length;index++){
-          if(item.status!=='attention')item.stage=`Saving image ${index+1} of ${assets.length}`;this.changed();
-          const saved=await cancellable(()=>this.driver.download(assets[index],item,index,{signal}),signal);
-          item.files.push(saved);this.changed();
-          if(item.removeBackground)enqueueCutout(saved,prompt,index,assets.length);
+        for(let index=0;index<item.count;index++){
+          let saved=item.files[index];
+          if(!saved){
+            if(item.status!=='attention')item.stage=`Saving image ${index+1} of ${item.count}`;this.changed();
+            saved=await cancellable(()=>this.driver.download(assets[index],item,index,{signal,onSaved:file=>{if(signal.aborted)return;prompt.files[index]=file;this.changed();},onStage:stage=>{if(signal.aborted||prompt.status!=='running')return;prompt.stage=stage;this.changed();}}),signal);
+            item.files[index]=saved;this.changed();
+          }
+          if(item.removeBackground&&!saved.cutout)enqueueCutout(saved,prompt,index,item.count);
         }
         item.downloadsFinishedAt=new Date(this.clock()).toISOString();
         if(item.removeBackground){

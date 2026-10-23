@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Continue cancelled or interrupted queues from their first unfinished prompt, keeping completed images and cached Flow generation references.
+- Recognize Flow download filenames shortened to five title words and recover missed download-completion notifications on each heartbeat.
+- Save original-image checkpoints before returning to the Flow grid, with clearer download and navigation stages.
 - Keep raw Flow downloads in `gflowris-downloads` beside the image output folder, removing browser landing copies only after saving the original and archive.
 - Reset stale Flow generation tracking after cancellation so a new queue can start without reloading the page.
 - Start the next Flow prompt after downloads finish while local background removal continues.

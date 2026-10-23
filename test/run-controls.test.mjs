@@ -12,7 +12,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 test('Run locks before awaiting, ignores rapid repeats, recovers from failure, and shows Images in every open view',async t=>{
   const item={id:'11111111-1111-4111-8111-111111111111',prompt:'Synthetic fixture',model:'Fixture model',ratio:'1:1',count:1,resolution:'2K',removeBackground:false};
   const state={connected:true,settings:{defaults:item,outputFolderDisplay:'Pictures\\gflowris-images'},draftQueue:{revision:1,items:[item]},queue:{status:'idle',items:[],message:'Ready'},capabilities:{ready:true,models:['Fixture model'],ratios:['1:1'],counts:[1],resolutions:['2K'],defaults:item}};
-  let attempts=0,reads=0,release,cancellations=0,releaseCancel;
+  let attempts=0,reads=0,release,cancellations=0,releaseCancel,resumptions=0;
   const server=http.createServer(async(req,res)=>{
     try{
       const pathname=new URL(req.url,'http://localhost').pathname;
@@ -20,6 +20,7 @@ test('Run locks before awaiting, ignores rapid repeats, recovers from failure, a
       if(pathname.startsWith('/api/')){
         res.setHeader('Content-Type','application/json');
         if(pathname==='/api/cancel'){cancellations++;await new Promise(resolve=>releaseCancel=resolve);state.queue={...state.queue,status:'cancelled',current:null,message:'Queue cancelled.',items:state.queue.items.map(item=>({...item,status:'cancelled',stage:'Cancelled'}))};}
+        if(pathname==='/api/resume'){resumptions++;state.queue={...state.queue,status:'running',current:item.id,items:state.queue.items.map(entry=>({...entry,status:'running',stage:'Continuing'}))};}
         if(pathname==='/api/run'){
           attempts++;await new Promise(resolve=>release=resolve);
           if(attempts===1){res.writeHead(400);res.end(JSON.stringify({error:'Fixture startup failure.'}));return;}
@@ -29,7 +30,7 @@ test('Run locks before awaiting, ignores rapid repeats, recovers from failure, a
         res.end(JSON.stringify(pathname==='/api/cutris/status'?{owner:'gflowris',models:{detail:true}}:{ok:true}));return;
       }
       const name=pathname==='/'?'index.html':pathname.slice(1);
-      assert(['index.html','app.js','queue-ui.js','prompt-input.js','style.css','assets/favicon.ico','assets/app-256.png'].includes(name));
+      assert(['index.html','app.js','queue-ui.js','prompt-input.js','prompt-help.js','style.css','assets/favicon.ico','assets/app-256.png'].includes(name));
       res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':name.endsWith('.png')?'image/png':name.endsWith('.ico')?'image/x-icon':'text/html');res.end(await fs.readFile(path.join(root,'public',name)));
     }catch(error){res.writeHead(500);res.end(error.message);}
   });
@@ -55,9 +56,11 @@ test('Run locks before awaiting, ignores rapid repeats, recovers from failure, a
   const next=reads;for(let i=0;i<150&&reads<next+3;i++)await pause(20);assert.equal(await first.locator('[data-workspace-tab="queue"]').getAttribute('aria-selected'),'true','manual tab choice remains usable during a run');
   const cancelState=await first.evaluate(()=>{const cancel=document.querySelector('#cancel');cancel.click();cancel.click();cancel.dispatchEvent(new Event('click'));return {disabled:cancel.disabled,label:cancel.textContent};});assert.deepEqual(cancelState,{disabled:true,label:'Cancelling…'});
   for(let i=0;i<100&&!cancellations;i++)await pause(20);assert.equal(cancellations,1);releaseCancel();
-  for(const page of [first,second]){await page.waitForFunction(()=>document.querySelector('#run').textContent==='Run queue (1)'&&!document.querySelector('#run').disabled);assert(await page.locator('#cancel').isDisabled());assert(await page.locator('#pause').isDisabled());assert(await page.locator('#queue-progress').isHidden());}
+  for(const page of [first,second]){await page.waitForFunction(()=>document.querySelector('#run').textContent==='Run new queue (1)'&&!document.querySelector('#run').disabled);assert(await page.locator('#cancel').isDisabled());assert(await page.locator('#pause').isDisabled());assert(await page.locator('#queue-progress').isHidden());assert.equal(await page.locator('#resume-queue').textContent(),'Continue from prompt 1');assert(await page.locator('#resume-queue').isVisible());}
+  await first.locator('#resume-queue').click();await first.waitForFunction(()=>document.querySelector('#run').textContent==='Running…');assert.equal(resumptions,1);assert.equal(attempts,2,'Continue must not start the draft queue again');
+  await first.locator('#cancel').click();for(let index=0;index<100&&cancellations===1;index++)await pause(20);assert.equal(cancellations,2);releaseCancel();await first.waitForFunction(()=>document.querySelector('#run').textContent==='Run new queue (1)');
   let releaseSettings;const blocked=new Promise(resolve=>releaseSettings=resolve);await first.route('**/api/settings',async route=>{await blocked;await route.fulfill({json:{ok:true}}).catch(()=>{});});
   await first.locator('#run').click();await first.waitForFunction(()=>document.querySelector('#run').textContent==='Starting…');await first.locator('#cancel').click();
-  for(let i=0;i<100&&cancellations===1;i++)await pause(20);assert.equal(cancellations,2);releaseSettings();releaseCancel();await first.waitForFunction(()=>!document.querySelector('#run').disabled);assert.equal(attempts,2,'cancelling during preference saving must prevent a later Run request');
+  for(let i=0;i<100&&cancellations===2;i++)await pause(20);assert.equal(cancellations,3);releaseSettings();releaseCancel();await first.waitForFunction(()=>!document.querySelector('#run').disabled);assert.equal(attempts,2,'cancelling during preference saving must prevent a later Run request');
   assert.deepEqual(errors,[]);
 });

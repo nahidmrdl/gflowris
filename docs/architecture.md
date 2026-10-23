@@ -12,6 +12,10 @@ Python owns the WebView2 desktop window and embedded editor. Node manages queue 
 
 Pause stops new prompts after the current prompt finishes downloading, then finishes all pending cutouts before waiting. Cancel revokes outstanding local commands, aborts background-removal requests, stops waiting, and marks remaining items cancelled. Files remain saved. A task already submitted to Google or executing inside Cutris may finish in its engine; late replies cannot advance a cancelled queue.
 
+Paused, cancelled, and interrupted queues can continue without resetting completed prompts. Generation tickets and completed asset references are saved before download work, and each original is checkpointed before navigating back to the project grid. Continuation reuses saved files and only requests missing downloads or cutouts. If an older or ambiguous generation has no saved reference, the app stops with a recovery message rather than silently submitting the prompt again. Reopen the original Flow project before continuing.
+
+The download matcher accepts Flow's full image title or its first five words, while retaining resolution, source, and time-window checks. The extension reconciles the armed Chrome download on each heartbeat, so a missed completion event or transient bridge failure cannot strand an already completed download. Concurrent completion reports share one in-flight operation.
+
 If background removal fails, the affected original is retained and marked for attention. No further prompts are submitted after the current prompt finishes downloading, and already queued cutouts finish before the queue reports the error. Generation and download errors also stop new submissions while previously queued cutouts finish. The app does not retry automatically.
 
 ## Standalone Cutris

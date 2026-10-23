@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {parsePrompts} from '../src/jobs.mjs';
+
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+test('the API continues a saved interrupted queue and checkpoints downloads before returning to the grid',async context=>{
+  const folder=await fs.mkdtemp(path.join(os.tmpdir(),'gflowris-resume-')),port=4325,page='https://flow.google.com/project/fixture',output=path.join(folder,'output');
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCzkAAAAASUVORK5CYII=','base64');
+  const firstOriginal=path.join(folder,'keep-first.png');await fs.writeFile(firstOriginal,png);
+  const items=parsePrompts('one\n---PROMPT---\ntwo\n---PROMPT---\nthree',{model:'Fixture',resolution:'2K'});
+  for(const item of items)item.outputFolder=output;
+  items[0].status='complete';items[0].files=[{name:'keep-first.png',path:firstOriginal}];items[1].status='attention';items[1].assets=[{mediaId:'asset-2',page}];items[1].generationFinishedAt=new Date().toISOString();
+  await fs.writeFile(path.join(folder,'last-queue.json'),JSON.stringify({status:'attention',current:null,items,message:'Interrupted'}));
+  const child=spawn(process.execPath,[path.join(root,'src/server.mjs'),'--no-open'],{cwd:root,env:{...process.env,FLOW_PROTO_STATE_DIR:folder,FLOW_PROTO_PORT:String(port)},windowsHide:true,stdio:'pipe'});
+  let logs='';child.stderr.on('data',data=>logs+=data);
+  context.after(async()=>{child.kill();if(child.exitCode===null)await new Promise(resolve=>child.once('close',resolve));assert.equal(path.dirname(folder),path.resolve(os.tmpdir()));assert(path.basename(folder).startsWith('gflowris-resume-'));await fs.rm(folder,{recursive:true,force:true});});
+  let control;for(let index=0;index<100;index++){try{control=JSON.parse(await fs.readFile(path.join(folder,'control.json'),'utf8'));break;}catch{if(child.exitCode!==null)throw new Error(logs);await pause(30);}}assert(control,logs);
+  const request=async(endpoint,headers,data)=>{const response=await fetch('http://127.0.0.1:'+port+endpoint,{method:data===undefined?'GET':'POST',headers:{...headers,'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data)});assert(response.ok,await response.clone().text());return response.json();};
+  const uiHeaders={Authorization:'Bearer '+control.token},api=(endpoint,data)=>request('/api/'+endpoint,uiHeaders,data),origin='chrome-extension://'+'d'.repeat(32);
+  const paired=await request('/bridge/pair',{Origin:origin},{code:(await api('state')).pairCode});
+  const bridgeHeaders={Origin:origin,Authorization:'Bearer '+paired.token},bridge=(endpoint,data)=>request('/bridge/'+endpoint,bridgeHeaders,data),poll=(results=[])=>bridge('poll',{tabId:5,results});
+  await bridge('poll',{tabId:5,snapshot:{version:'0.3.3',page,tiles:[],controls:[]}});await api('resume',{});
+  const nextCommand=async()=>{for(let attempt=0;attempt<100;attempt++){const result=await poll();if(result.command)return result.command;await pause(10);}assert.fail('No browser command arrived');};
+  const download=await nextCommand();assert.equal(download.type,'download');assert.equal(download.payload.item.index,2);assert.equal(download.payload.asset.mediaId,'asset-2');
+  const source=path.join(folder,download.payload.marker+'.png');await fs.writeFile(source,png);await bridge('download',{marker:download.payload.marker,filename:source});
+  await poll([{id:download.id,result:{started:true}}]);const back=await nextCommand();assert.equal(back.type,'returnToProject');
+  const saving=await api('state');assert.equal(saving.queue.items[0].status,'complete');assert.equal(saving.queue.items[1].files.length,1);assert.match(saving.queue.items[1].stage,/Returning/);
+  await poll([{id:back.id,result:{ok:true}}]);const generate=await nextCommand();assert.equal(generate.type,'generate');assert.equal(generate.payload.item.index,3);
+  await api('cancel',{});assert.deepEqual(await fs.readFile(firstOriginal),png);
+});

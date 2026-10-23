@@ -130,3 +130,37 @@ test('partial image results never advance the queue',async()=>{
   let downloads=0;const queue=new ImageQueue({generate:async()=>1,generation:async()=>({complete:true,assets:['one']}),download:async()=>downloads++});
   await queue.start(parsePrompts('one',{count:2}));assert.equal(downloads,0);assert.equal(queue.state.status,'attention');
 });
+
+test('continuing a cancelled queue skips completed prompts and reuses generated assets',async()=>{
+  const generated=[],downloaded=[],blocked=deferred(),entered=deferred();
+  const queue=new ImageQueue({generate:async item=>{generated.push(item.index);return item.index;},generation:async()=>({complete:true,assets:['asset']}),download:async(_,item)=>{downloaded.push(item.index);if(item.index===2){entered.resolve();await blocked.promise;}return {name:'original-'+item.index};}});
+  const running=queue.start(parsePrompts('one\n---PROMPT---\ntwo\n---PROMPT---\nthree'));await entered.promise;queue.cancel();await running;
+  assert.equal(queue.state.items[0].status,'complete');assert.deepEqual(queue.state.items[1].assets,['asset']);
+  queue.driver.download=async(_,item)=>{downloaded.push(item.index);return {name:'original-'+item.index};};await queue.resume();
+  assert.deepEqual(generated,[1,2,3]);assert.deepEqual(downloaded,[1,2,2,3]);assert.equal(queue.state.status,'complete');blocked.resolve();
+});
+
+test('continuing after a return-to-grid failure keeps the saved original and only performs the missing cutout',async()=>{
+  let generates=0,downloads=0,cuts=0;
+  const queue=new ImageQueue({generate:async()=>{generates++;return {};},generation:async()=>({complete:true,assets:['asset']}),download:async(_,item,index,{onSaved})=>{downloads++;onSaved({name:'original.png'});throw new Error('Back button did not respond');},postprocess:async()=>{cuts++;return {name:'cutout.png'};}});
+  await queue.start(parsePrompts('one',{removeBackground:true}));assert.equal(queue.state.status,'attention');assert.equal(queue.state.items[0].files[0].name,'original.png');
+  await queue.resume();assert.equal(queue.state.status,'complete');assert.equal(generates,1);assert.equal(downloads,1);assert.equal(cuts,1);
+});
+
+test('continuing after a Cutris failure retries only the missing cutout',async()=>{
+  let generations=0,downloads=0;
+  const queue=new ImageQueue({generate:async()=>{generations++;return {};},generation:async()=>({complete:true,assets:['asset']}),download:async()=>{downloads++;return {name:'original'};},postprocess:async()=>{throw new Error('Engine unavailable');}});
+  await queue.start(parsePrompts('one',{removeBackground:true}));queue.driver.postprocess=async()=>({name:'cutout'});await queue.resume();
+  assert.equal(queue.state.status,'complete');assert.equal(generations,1);assert.equal(downloads,1);assert.equal(queue.state.items[0].files[0].cutrisError,undefined);
+});
+
+test('a restarted queue reuses its persisted generation ticket without submitting another prompt',async()=>{
+  const items=parsePrompts('one'),queue=new ImageQueue({generate:async()=>assert.fail('Must not regenerate'),generation:async ticket=>{assert.equal(ticket.id,'saved-ticket');return {complete:true,assets:['asset']};},download:async()=>({name:'original'})});
+  items[0].status='attention';items[0].generationStartedAt=new Date().toISOString();items[0].generationTicket={id:'saved-ticket'};queue.state={status:'attention',items,current:null};
+  await queue.resume();assert.equal(queue.state.status,'complete');
+});
+
+test('an ambiguous old generation is never resubmitted while continuing',async()=>{
+  const items=parsePrompts('one'),queue=new ImageQueue({generate:async()=>assert.fail('Must not regenerate')});items[0].generationAttemptedAt=new Date().toISOString();items[0].status='cancelled';queue.state={status:'cancelled',items,current:null};
+  await queue.resume();assert.equal(queue.state.status,'attention');assert.match(queue.state.message,/no saved Flow image reference/);
+});

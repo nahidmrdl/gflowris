@@ -64,6 +64,15 @@ test('pointer activation starts exactly one job and completion waits for a loade
     assert.deepEqual(await page.evaluate(()=>activationStats),{pointerDowns:1,clicks:1,generations:1});
   }finally{await browser.close();}
 });
+
+test('continuing from an image page returns to the grid before generating the next prompt',async()=>{
+  const {browser,page}=await setup();
+  try{
+    await page.locator('img[data-media-id="prior-asset"]').click();assert.match(page.url(),/\/edit\//);
+    await page.evaluate(()=>adapter.generate({item:{prompt:'Next image',model:'Nano Banana 2.1',ratio:'1:1',count:1}}));
+    assert.equal(new URL(page.url()).pathname,'/project/fixture');assert.equal(await page.evaluate(()=>activationStats.generations),1);
+  }finally{await browser.close();}
+});
 test('browser input sends one trusted click and always detaches from the allowed Flow tab',async()=>{
   const {clickGenerate,isFlowProject}=await import('../extension/browser-input.js');
   assert.equal(isFlowProject('https://accounts.google.com/'),false);assert.equal(isFlowProject('https://flow.google.com/project/x/edit/y'),false);

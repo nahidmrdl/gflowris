@@ -3,7 +3,9 @@ export function matchFlowDownload(item,expected){
   if(!expected?.title||!expected.page)return {match:false,reason:'No image identity was registered.'};
   const filename=String(item.filename||'').split(/[\\/]/).pop();
   const parts=filename.match(/^(.*)_(1K|2K|4K)_(\d{14})(?: \(\d+\))?\.(png|jpe?g|webp|avif)$/i);
-  if(!parts||normalize(parts[1])!==normalize(expected.title))return {match:false,reason:'Filename does not identify the selected Flow image.'};
+  const titleWords=String(expected.title).trim().split(/\s+/),titleNames=[normalize(expected.title)];
+  if(titleWords.length>5)titleNames.push(normalize(titleWords.slice(0,5).join(' ')));
+  if(!parts||!titleNames.includes(normalize(parts[1])))return {match:false,reason:'Filename does not identify the selected Flow image.'};
   if(parts[2].toUpperCase()!==expected.resolution)return {match:false,reason:'Download resolution does not match the selected size.'};
   const started=Date.parse(item.startTime);
   if(!Number.isFinite(started)||started<expected.started||started-expected.started>15*60*1000)return {match:false,reason:'Download is outside this image’s active time window.'};

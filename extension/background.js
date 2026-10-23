@@ -22,10 +22,7 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{
       const {token,tabId}=await chrome.storage.local.get(['token','tabId']);
       if(tabId!==sender.tab.id)return {idle:true};
       const {pendingReport}=await chrome.storage.session.get('pendingReport');
-      if(pendingReport){
-        const {armed,delta}=pendingReport;
-        try{const [item]=await chrome.downloads.search({id:armed.downloadId});await reportDownload(armed,item?.state==='complete'?{filename:item.filename}:{error:delta.error?.current||'Download interrupted.'});await chrome.storage.session.remove('pendingReport');}catch{}
-      }
+      try{await reconcileDownload();}catch{}
       const result=await bridge('/bridge/poll',{tabId,snapshot:message.snapshot,results:message.results},token);
       const {armed}=await chrome.storage.session.get('armed');if(armed&&Array.isArray(result.activeDownloadMarkers)&&!result.activeDownloadMarkers.includes(armed.marker)){if(armed.downloadId!==undefined)await chrome.downloads.cancel(armed.downloadId).catch(()=>{});await chrome.storage.session.remove(['armed','pendingReport']);}
       if(pendingReport&&Array.isArray(result.activeDownloadMarkers)&&!result.activeDownloadMarkers.includes(pendingReport.armed.marker))await chrome.storage.session.remove('pendingReport');
@@ -57,20 +54,38 @@ chrome.downloads.onDeterminingFilename.addListener((item,suggest)=>{
     if(!armed||armed.downloadId!==undefined||Date.now()-armed.started>15*60*1000||Date.parse(item.startTime)<armed.started)return;
     if(!item.mime?.startsWith('image/')&&!/\.(png|jpe?g|webp|avif)$/i.test(item.filename))return;
     const {token}=await chrome.storage.local.get('token');
-    const decision=await bridge('/bridge/candidate',{marker:armed.marker,item:{filename:item.filename.split(/[\\/]/).pop(),mime:item.mime,startTime:item.startTime,referrerOrigin:urlOrigin(item.referrer),sourceOrigin:urlOrigin(item.url)}},token);
+    let decision;
+    try{decision=await bridge('/bridge/candidate',{marker:armed.marker,item:{filename:item.filename.split(/[\\/]/).pop(),mime:item.mime,startTime:item.startTime,referrerOrigin:urlOrigin(item.referrer),sourceOrigin:urlOrigin(item.url)}},token);}
+    catch(error){await chrome.storage.session.set({pendingReport:{armed,delta:{error:{current:'Download association failed: '+error.message}}}});throw error;}
     if(!decision.match)return;
     const ext=decision.extension;
     armed.downloadId=item.id;await chrome.storage.session.set({armed});
     suggest({filename:`gflowris/${armed.marker}.${ext}`,conflictAction:'uniquify'});return true;
   })().then(handled=>{if(!handled)suggest();},()=>suggest());return true;
 });
+const downloadReports=new Map();
 async function reportDownload(armed,data){
-  const {token}=await chrome.storage.local.get('token');await bridge('/bridge/download',{marker:armed.marker,...data},token);await chrome.storage.session.remove('armed');
+  if(downloadReports.has(armed.marker))return downloadReports.get(armed.marker);
+  const reporting=(async()=>{
+    const {token}=await chrome.storage.local.get('token');await bridge('/bridge/download',{marker:armed.marker,...data},token);
+    const current=await chrome.storage.session.get(['armed','pendingReport']);
+    if(current.armed?.marker===armed.marker)await chrome.storage.session.remove('armed');
+    if(current.pendingReport?.armed.marker===armed.marker)await chrome.storage.session.remove('pendingReport');
+  })();
+  downloadReports.set(armed.marker,reporting);
+  try{return await reporting;}finally{downloadReports.delete(armed.marker);}
+}
+async function reconcileDownload(){
+  const {armed,pendingReport}=await chrome.storage.session.get(['armed','pendingReport']);
+  if(!armed)return;
+  if(armed.downloadId===undefined){if(pendingReport?.armed.marker===armed.marker)await reportDownload(armed,{error:pendingReport.delta.error?.current||'Download association failed.'});return;}
+  const [item]=await chrome.downloads.search({id:armed.downloadId});
+  if(item?.state==='complete')await reportDownload(armed,{filename:item.filename});
+  else if(item?.state==='interrupted')await reportDownload(armed,{error:item.error||pendingReport?.delta.error?.current||'Chrome interrupted the download.'});
 }
 chrome.downloads.onChanged.addListener(async delta=>{
   const {armed}=await chrome.storage.session.get('armed');if(!armed||delta.id!==armed.downloadId)return;
-  try{
-    if(delta.state?.current==='interrupted')await reportDownload(armed,{error:delta.error?.current||'Chrome interrupted the download.'});
-    else if(delta.state?.current==='complete'){const [item]=await chrome.downloads.search({id:delta.id});if(item?.state==='complete')await reportDownload(armed,{filename:item.filename});}
-  }catch{await chrome.storage.session.set({pendingReport:{armed,delta}});}
+  if(!['complete','interrupted'].includes(delta.state?.current))return;
+  await chrome.storage.session.set({pendingReport:{armed,delta}});
+  try{await reconcileDownload();}catch{}
 });

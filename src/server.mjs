@@ -55,7 +55,7 @@ async function archiveQueue(){
 const imageQueue=new ImageQueue({
   generate:async(item,{signal})=>item.sourceAsset?{existing:item.sourceAsset}:command('generate',{item},45000,signal),
   generation:async(ticket,item,{signal})=>ticket.existing?{complete:true,assets:[ticket.existing]}:command('generation',{ticket,count:item.count},20000,signal),
-  download:async(asset,item,index,{signal})=>{
+  download:async(asset,item,index,{signal,onSaved,onStage})=>{
     const marker=`${item.id}-${index+1}`;
     const completion=new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>{downloads.delete(marker);reject(new Error('Download timed out. Check Flow and Chrome Downloads.'));},15*60*1000);
@@ -63,7 +63,7 @@ const imageQueue=new ImageQueue({
     });
     // Handle an early failure while the browser is still opening the download menu.
     completion.catch(()=>{});
-    try{await command('download',{asset,item,index,marker},45000,signal);const saved=await cancellable(()=>completion,signal);await command('returnToProject',{},20000,signal);return saved;}
+    try{await command('download',{asset,item,index,marker},45000,signal);onStage?.('Waiting for the '+item.resolution+' download to finish');const saved=await cancellable(()=>completion,signal);onSaved?.(saved);onStage?.('Returning to the Flow project');await command('returnToProject',{},20000,signal);return saved;}
     catch(error){const waiting=downloads.get(marker);if(waiting){clearTimeout(waiting.timer);downloads.delete(marker);waiting.reject(error);}throw error;}
   },
   postprocess:async(file,item,{signal})=>cutris.remove(file,{quality:item.cutrisQuality,mode:item.cutrisMode,autoCrop:item.autoCrop,signal})
@@ -311,7 +311,19 @@ const server=http.createServer(async(req,res)=>{
         }finally{startingQueue=false;startingController=null;}return;
       }
       if(url.pathname==='/api/pause'&&req.method==='POST'){if(imageQueue.state.status!=='running')throw new Error('No running queue to pause.');imageQueue.pause();reply(res,200,{ok:true});return;}
-      if(url.pathname==='/api/resume'&&req.method==='POST'){if(imageQueue.running||postProcessing||startingQueue||imageQueue.state.status!=='paused')throw new Error('No paused queue to resume.');imageQueue.resume();reply(res,202,{ok:true});return;}
+      if(url.pathname==='/api/resume'&&req.method==='POST'){
+        if(imageQueue.running||postProcessing||startingQueue||!['paused','cancelled','attention'].includes(imageQueue.state.status)||!imageQueue.state.items.some(item=>item.status!=='complete'))throw new Error('No interrupted queue to continue.');
+        if(!supportedBridges.has(snapshot?.version))throw new Error('Load the updated gflowris bridge before continuing.');
+        startingQueue=true;startingController=new AbortController();const signal=startingController.signal;
+        try{
+          const unfinished=imageQueue.state.items.filter(item=>item.status!=='complete');
+          const originalPage=imageQueue.state.items.flatMap(item=>item.assets||[]).find(asset=>asset?.page)?.page||imageQueue.state.items.find(item=>item.generationTicket?.page)?.generationTicket.page;
+          if(originalPage&&snapshot.page?.split('/edit/')[0]!==originalPage)throw new Error('Open the original Flow project before continuing this queue.');
+          for(const quality of new Set(unfinished.filter(item=>item.removeBackground&&(item.files.length<item.count||item.files.some(file=>!file.cutout))).map(item=>item.cutrisQuality)))await cancellable(()=>cutris.preflight(quality),signal);
+          for(const folder of new Set(unfinished.map(item=>item.outputFolder||settings.outputFolder))){await prepareOutputFolder(folder);checkCancellation(signal);}
+          imageQueue.resume();reply(res,202,{ok:true});
+        }finally{startingQueue=false;startingController=null;}return;
+      }
       if(url.pathname==='/api/settings'&&req.method==='POST'){
         const data=await body(req);
         const saved=await(settingsWrites=settingsWrites.catch(()=>{}).then(async()=>{const updated=validatePreferences(data,settings);const temporary=path.join(stateRoot,'settings.tmp');await fs.writeFile(temporary,JSON.stringify(updated));await fs.rename(temporary,path.join(stateRoot,'settings.json'));settings=updated;return updated;}));

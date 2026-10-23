@@ -35,6 +35,8 @@ Add up to **25 prompts** with shared or individual settings. Choose the model, a
 
 After all images for a prompt finish downloading, the next prompt starts while Cutris removes backgrounds locally. Cutris processes one image at a time, and the queue finishes when all requested cutouts are saved. Pause finishes the active prompt and pending cutouts before waiting, or cancel the remaining work. Drafts are saved between sessions.
 
+If a queue is cancelled or interrupted, choose **Continue from prompt …** to keep completed work and resume the saved queue. Already downloaded originals and cutouts are reused, and cached Flow image references prevent another generation when only downloading remains. **Run new queue** explicitly starts the prompt cards again.
+
 ![Prompt queue with individual settings](docs/assets/queue.png)
 
 ## The full Cutris editor, inside gflowris

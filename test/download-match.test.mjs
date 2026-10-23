@@ -10,3 +10,14 @@ test('associates the exact Flow image and size even when referrer only contains 
 test('rejects unrelated filenames, wrong sizes, old files and unassociated sources',()=>{
   for(const changes of [{filename:'Other_image_2K_20261021222555.jpg'},{filename:download.filename.replace('_2K_','_1K_')},{startTime:new Date(9000).toISOString()},{referrerOrigin:null,sourceOrigin:'https://unrelated.example'}])assert.equal(matchFlowDownload({...download,...changes},expected).match,false);
 });
+
+test('Flow filenames shortened to the first five title words still identify the armed image',()=>{
+  const herb={...expected,title:'Healing herb bundle tied with twine'};
+  const file={...download,filename:'Healing_herb_bundle_tied_with_2K_20261023231251.jpg'};
+  assert.equal(matchFlowDownload(file,herb).match,true);
+  assert.equal(matchFlowDownload({...file,filename:file.filename.replace('with','without')},herb).match,false);
+  assert.equal(matchFlowDownload({...file,filename:file.filename.replace('_2K_','_1K_')},herb).match,false);
+  assert.equal(matchFlowDownload({...file,startTime:new Date(9000).toISOString()},herb).match,false);
+  assert.equal(matchFlowDownload({...file,referrerOrigin:null,sourceOrigin:'https://unrelated.example'},herb).match,false);
+  assert.equal(matchFlowDownload({...download,filename:'Dark_brown_ore_rock_with_2K_20261023230225.jpg'},{...expected,title:'Dark brown ore rock with golden nuggets'}).match,true);
+});

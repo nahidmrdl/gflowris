@@ -42,11 +42,11 @@ test('cancel drains browser progress promptly and never starts queued Cutris tas
   const cancelled=JSON.stringify(queue.state);late.resolve({name:'late-cutout.png'});await pause(0);assert.equal(JSON.stringify(queue.state),cancelled);assert.deepEqual(processed,['original-1.png']);
 });
 
-test('cancelled downloads retain earlier saved images, and cancelled paused queues cannot resume',async()=>{
+test('cancelled downloads retain earlier saved images, and cancelled paused queues can continue remaining prompts',async()=>{
   const entered=deferred(),late=deferred();
   const queue=new ImageQueue({generate:async()=>({}),generation:async()=>({complete:true,assets:['first','second']}),download:async(asset,item,index)=>{if(index===1){entered.resolve();return late.promise;}return {name:'saved-first.png'};}});
   const running=queue.start(parsePrompts('two images',{count:2}));await entered.promise;queue.cancel();await running;assert.deepEqual(queue.state.items[0].files,[{name:'saved-first.png'}]);late.resolve({name:'late-second.png'});await pause(0);assert.equal(queue.state.items[0].files.length,1);
-  queue.driver.generation=async()=>({complete:true,assets:['one']});queue.driver.download=async()=>{queue.pause();return {name:'saved.png'};};await queue.start(parsePrompts('one\n---PROMPT---\ntwo'));assert.equal(queue.state.status,'paused');assert(queue.cancel());await assert.rejects(queue.resume(),/cannot be resumed/);assert.equal(queue.state.items[0].status,'complete');assert.equal(queue.state.items[1].status,'cancelled');
+  queue.driver.generation=async()=>({complete:true,assets:['one']});queue.driver.download=async()=>{queue.pause();return {name:'saved.png'};};await queue.start(parsePrompts('one\n---PROMPT---\ntwo'));assert.equal(queue.state.status,'paused');assert(queue.cancel());assert.equal(queue.state.items[0].status,'complete');assert.equal(queue.state.items[1].status,'cancelled');await queue.resume();assert.equal(queue.state.status,'complete');assert.equal(queue.state.items[0].files.length,1);
 });
 
 test('Cutris cancellation aborts the request and never writes a late cutout',async t=>{

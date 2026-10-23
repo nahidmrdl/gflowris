@@ -7,6 +7,7 @@ let state=null,hydrated=false,capabilityKey='',jobsKey='',filter='all',selecting
 const selected=new Set(),previews=new Map();
 const element=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;};
 const badges=(selector,values)=>$(selector).replaceChildren(...values.map(value=>element('span','',value)));
+const continueButton=element('button','secondary','Continue queue');continueButton.id='resume-queue';continueButton.hidden=true;$('#run').after(continueButton);
 async function api(route,data,signal){
   const response=await fetch('/api/'+route,{method:data===undefined?'GET':'POST',headers:{Authorization:'Bearer '+sessionStorage.getItem('flow-key'),'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),signal});
   const result=await response.json();if(!response.ok)throw new Error(result.error||'The operation could not finish.');return result;
@@ -15,8 +16,10 @@ function message(text,error=false){$('#message').textContent=text;$('#message').
 const active=()=>startingRun||cancellingRun||state?.queue?.status==='running'||state?.postProcessing||state?.preparing;
 function runControls(){
   if(!state)return;
+  const unfinished=state.queue.items.find(item=>item.status!=='complete'),canContinue=['cancelled','attention'].includes(state.queue.status)&&!!unfinished;
   $('#run').disabled=!state.connected||!state.capabilities?.ready||active()||workspace.busy||(!workspace.items.length&&state.queue.status!=='paused');
-  $('#run').textContent=cancellingRun?'Cancelling…':startingRun||state.preparing?'Starting…':state.queue.status==='running'?'Running…':state.postProcessing?'Processing…':state.queue.status==='paused'?'Resume queue':'Run queue ('+workspace.items.length+')';
+  $('#run').textContent=cancellingRun?'Cancelling…':startingRun||state.preparing?'Starting…':state.queue.status==='running'?'Running…':state.postProcessing?'Processing…':state.queue.status==='paused'?'Resume queue':(canContinue?'Run new queue (':'Run queue (')+workspace.items.length+')';
+  continueButton.hidden=!canContinue;continueButton.textContent=canContinue?'Continue from prompt '+unfinished.index:'Continue queue';continueButton.disabled=!state.connected||!state.capabilities?.ready||active()||workspace.busy;
   $('#run').setAttribute('aria-busy',String(!!active()));
   $('#pause').disabled=cancellingRun||startingRun||state.queue.status!=='running';$('#inspect').disabled=active();$('#history-open').disabled=active();$('#clear-images').disabled=active()||!state.queue.items.length;
   $('#cancel').disabled=cancellingRun||!(startingRun||state.preparing||['running','paused'].includes(state.queue.status));$('#cancel').textContent=cancellingRun?'Cancelling…':'Cancel queue';
@@ -226,6 +229,13 @@ async function runDraft(items){
   }
 }
 $('#pause').onclick=()=>api('pause',{}).then(update).catch(error=>message(error.message,true));
+continueButton.onclick=async()=>{
+  if(active()||continueButton.disabled)return;
+  startingRun=true;runController=new AbortController();runControls();
+  try{await api('resume',{},runController.signal);workspace.showTab('images');noticeUntil=0;}
+  catch(error){if(error.name!=='AbortError')message(error.message,true);}
+  finally{startingRun=false;runController=null;await update();runControls();}
+};
 $('#cancel').onclick=async()=>{
   if(cancellingRun||$('#cancel').disabled)return;
   const preparing=startingRun;cancellingRun=true;runController?.abort();runControls();message('Cancelling the queue…');
