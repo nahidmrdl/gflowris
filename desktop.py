@@ -267,5 +267,5 @@ if __name__ == "__main__":
         (STATE / "desktop-error.log").write_text(str(error), encoding="utf-8")
         if os.name == "nt":
             import ctypes
-            ctypes.windll.user32.MessageBoxW(None, "gflowris could not start. Run Setup-native.cmd and check the local desktop log.", "gflowris", 0x10)
+            ctypes.windll.user32.MessageBoxW(None, f"gflowris could not start. Try opening the app again. If the problem continues, reinstall the latest release.\n\nError details: {STATE / 'desktop-error.log'}", "gflowris", 0x10)
         raise SystemExit(1)

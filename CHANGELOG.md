@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Replace outdated manual native-setup instructions with release-appropriate recovery guidance in extension and desktop errors.
+- Confirm a live Flow heartbeat before reporting a project connected; show reload guidance for stale or unavailable Flow tabs.
 - Continue cancelled or interrupted queues from their first unfinished prompt, keeping completed images and cached Flow generation references.
 - Recognize Flow download filenames shortened to five title words and recover missed download-completion notifications on each heartbeat.
 - Save original-image checkpoints before returning to the Flow grid, with clearer download and navigation stages.

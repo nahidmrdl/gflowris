@@ -14,7 +14,14 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse)=>{
       if(!tab||!flowUrl(tab.url))throw new Error('Open your Flow project, then connect from its extension popup.');
       await nativeRequest('status');
       await bridge('/bridge/select-tab',{tabId:tab.id,page:tab.url});
-      await chrome.storage.local.set({native:true,tabId:tab.id});return {ok:true,reconnected:true};
+      await chrome.storage.local.set({native:true,tabId:tab.id});
+      try{await pulseFlowTab(chrome);}catch{throw new Error('Reload the Google Flow page, then reopen this popup and connect again.');}
+      for(let attempt=0;attempt<12;attempt++){
+        const status=await nativeRequest('status');
+        if(status.flowConnected)return {ok:true,reconnected:true,flowConnected:true};
+        if(attempt<11)await new Promise(resolve=>setTimeout(resolve,250));
+      }
+      throw new Error('The Flow page has not connected to gflowris yet. Reload the Google Flow page and reconnect.');
     }
     if(message.type==='status'&&!sender.tab){const status=await nativeRequest('status');const {tabId}=await chrome.storage.local.get('tabId');const [active]=await chrome.tabs.query({active:true,currentWindow:true});return {paired:true,native:true,tabId,...status,activeFlow:!!active&&flowUrl(active.url),selected:!!active&&active.id===tabId};}
     if(message.type==='desktop-open'&&!sender.tab)return nativeRequest('desktop-open');

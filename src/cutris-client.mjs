@@ -25,7 +25,7 @@ export class CutrisClient{
   }
   async existingConnection(){
     try{const embedded=await this.readConnection();if(embedded.owner==='gflowris')return embedded;}catch{}
-    const runtime=await readJson(path.join(this.stateRoot,'runtime.json')).catch(()=>{throw new Error('Run Setup-native.cmd to configure the desktop and Cutris runtime.');});
+    const runtime=await readJson(path.join(this.stateRoot,'runtime.json')).catch(()=>{throw new Error('Open gflowris to configure the local Cutris runtime. If the problem continues, reinstall the latest gflowris release.');});
     const candidates=[runtime.cutrisRoot?path.join(runtime.cutrisRoot,'data','integration','service.json'):null,
       process.env.LOCALAPPDATA?path.join(process.env.LOCALAPPDATA,'Cutris','api','service.json'):null].filter(Boolean);
     for(const file of candidates){try{const connection=await this.readConnection(file);if(connection.source==='desktop')return connection;}catch{}}
@@ -34,7 +34,7 @@ export class CutrisClient{
   }
   async ensure(){
     try{return await this.existingConnection();}catch{}
-    const runtime=await readJson(path.join(this.stateRoot,'runtime.json')).catch(()=>{throw new Error('Run Setup-native.cmd to configure the desktop and Cutris runtime.');});
+    const runtime=await readJson(path.join(this.stateRoot,'runtime.json')).catch(()=>{throw new Error('Open gflowris to configure the local Cutris runtime. If the problem continues, reinstall the latest gflowris release.');});
     if(!path.isAbsolute(runtime.pythonExe||''))throw new Error('Configure a Cutris Python runtime first.');
     const log=await fs.open(path.join(this.stateRoot,'cutris.log'),'a');
     try{

@@ -2,9 +2,9 @@ const $=selector=>document.querySelector(selector);
 let available=false;
 function note(text,error=false){$('#status').hidden=false;$('#status').textContent=text;$('#status').classList.toggle('error',error);}
 function connectionError(error){
-  const detail=error.message||String(error);available=false;$('#desktop-state').textContent='Setup needed';$('#project-state').textContent='Not connected';$('#status-dot').classList.remove('online');$('#diagnostics').hidden=false;$('#error-detail').textContent=detail;
-  if(/host not found/i.test(detail))note('Run Setup-native.cmd from the app folder once, then reopen this popup.',true);
-  else if(/forbidden|not registered/i.test(detail))note('Run desktop setup again with this extension’s ID to restore the connection.',true);
+  const detail=error.message||String(error);available=false;$('#desktop-state').textContent='Unavailable';$('#project-state').textContent='Not connected';$('#status-dot').classList.remove('online');$('#diagnostics').hidden=false;$('#error-detail').textContent=detail;
+  if(/host not found/i.test(detail))note('Open gflowris, then reopen this popup. If it still cannot connect, reinstall the latest gflowris release.',true);
+  else if(/forbidden|not registered/i.test(detail))note('Open gflowris and reload gflowris bridge in chrome://extensions, then reopen this popup. If it still cannot connect, install the matching app and extension from the latest release.',true);
   else note(detail,true);
 }
 async function status(){
@@ -21,7 +21,7 @@ async function status(){
 }
 $('#connect').onclick=async()=>{
   $('#connect').disabled=true;note('Connecting your project…');
-  try{const result=await chrome.runtime.sendMessage({type:'pair'});if(!result.ok)throw new Error(result.error);note('Project connected. You can return to the desktop app.');await status();}
+  try{const result=await chrome.runtime.sendMessage({type:'pair'});if(!result.ok)throw new Error(result.error);if(!result.flowConnected)throw new Error('The Flow page has not connected yet. Reload the Google Flow page and reconnect.');note('Project connected. You can return to the desktop app.');await status();}
   catch(error){connectionError(error);}finally{$('#connect').disabled=false;}
 };
 $('#open-desktop').onclick=async()=>{

@@ -1,5 +1,5 @@
 const HOST='com.automationflowgen.bridge';
-let port=null,nextAttempt=0,lastError='Desktop connection unavailable. Run Setup-native.cmd, then reconnect.';
+let port=null,nextAttempt=0,lastError='Desktop connection unavailable. Open gflowris, then reopen the extension popup.';
 const pending=new Map();
 function connect(){
   if(port)return port;
