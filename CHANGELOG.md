@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Recognize Flow's image-ID download filenames so completed images are imported instead of leaving the queue waiting.
+- Resume unfinished downloads from an open image editor without submitting another generation.
 - Replace outdated manual native-setup instructions with release-appropriate recovery guidance in extension and desktop errors.
 - Confirm a live Flow heartbeat before reporting a project connected; show reload guidance for stale or unavailable Flow tabs.
 - Continue cancelled or interrupted queues from their first unfinished prompt, keeping completed images and cached Flow generation references.

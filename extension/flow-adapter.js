@@ -92,6 +92,7 @@ globalThis.createFlowPrototypeAdapter=({activate,visible,startGeneration,startTi
     saved.finished=true;return {complete:true,assets:fresh.map(el=>({mediaId:el.getAttribute('data-media-id'),page:saved.page,width:el.naturalWidth,height:el.naturalHeight}))};
   }
   async function download({asset,item,marker}){
+    if(location.pathname.includes('/edit/'))await returnToProject();
     project();if(asset.page!==location.origin+location.pathname)throw new Error('The Flow project changed.');
     const image=unique(media().filter(el=>el.getAttribute('data-media-id')===asset.mediaId),'generated image');
     let sourceOrigin;try{sourceOrigin=new URL(image.currentSrc||image.src).origin;}catch{}

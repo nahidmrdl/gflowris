@@ -17,7 +17,7 @@ const fixture=`<!doctype html><html><head><meta charset="utf-8"></head><body>
 </section>
 <div role="textbox" contenteditable="true" aria-label="What do you want to create?" style="height:60px;border:1px solid"></div>
 <button aria-label="Start generation" type="submit" disabled>arrow_forward</button><main><flow-tile-container><flow-image-tile><img data-media-id="prior-asset" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aCzkAAAAASUVORK5CYII=" width="120" height="120"></flow-image-tile></flow-tile-container></main>
-</div><section id="edit" hidden><button aria-label="Back button to go to previous page">Back</button><button aria-label="Download media">Download</button></section>
+</div><section id="edit" hidden><button aria-label="Back button to go to previous page">Back</button><button aria-label="Download media">Download</button><input aria-label="Editable text" value="Fixture token"></section>
 <script>
 window.activationStats={pointerDowns:0,clicks:0,generations:0};window.acceptGeneration=true;let pointerReady=false;
 const button=document.querySelector('[aria-label="Start generation"]'),editor=document.querySelector('[contenteditable]');
@@ -71,6 +71,22 @@ test('continuing from an image page returns to the grid before generating the ne
     await page.locator('img[data-media-id="prior-asset"]').click();assert.match(page.url(),/\/edit\//);
     await page.evaluate(()=>adapter.generate({item:{prompt:'Next image',model:'Nano Banana 2.1',ratio:'1:1',count:1}}));
     assert.equal(new URL(page.url()).pathname,'/project/fixture');assert.equal(await page.evaluate(()=>activationStats.generations),1);
+  }finally{await browser.close();}
+});
+
+test('continuing an unfinished download from the image editor reuses its asset without generating again',async()=>{
+  const {browser,page}=await setup();
+  try{
+    await page.waitForFunction(()=>document.querySelector('img[data-media-id="prior-asset"]')?.complete);
+    await page.locator('img[data-media-id="prior-asset"]').click();assert.match(page.url(),/\/edit\//);
+    await page.evaluate(()=>{
+      window.backClicks=0;document.querySelector('[aria-label="Back button to go to previous page"]').addEventListener('click',()=>backClicks++);
+      window.chrome={runtime:{sendMessage:async message=>{window.armedDownload=message;return {ok:true};}}};
+    });
+    const result=await page.evaluate(()=>adapter.download({asset:{mediaId:'prior-asset',page:location.origin+'/project/fixture'},item:{resolution:'2K'},marker:'11111111-1111-4111-8111-111111111111-1'}));
+    assert.equal(result.started,true);assert.equal(await page.evaluate(()=>backClicks),1);
+    const armed=await page.evaluate(()=>armedDownload);assert.equal(armed.title,'Fixture token');assert.equal(armed.resolution,'2K');
+    assert.equal(await page.evaluate(()=>activationStats.generations),0);
   }finally{await browser.close();}
 });
 test('browser input sends one trusted click and always detaches from the allowed Flow tab',async()=>{

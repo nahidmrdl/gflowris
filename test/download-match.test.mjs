@@ -21,3 +21,27 @@ test('Flow filenames shortened to the first five title words still identify the 
   assert.equal(matchFlowDownload({...file,referrerOrigin:null,sourceOrigin:'https://unrelated.example'},herb).match,false);
   assert.equal(matchFlowDownload({...download,filename:'Dark_brown_ore_rock_with_2K_20261023230225.jpg'},{...expected,title:'Dark brown ore rock with golden nuggets'}).match,true);
 });
+
+test('image-ID filenames and Chrome duplicate suffixes match the selected generated asset',()=>{
+  const image={...expected,mediaId:'ab12cd34-1234-4234-8234-123456789abc'};
+  for(const filename of ['Lime-green_arcade_token_icon_ab12cd34_2K.jpg','Lime-green_arcade_token_icon_ab12cd34_2K (1).jpg','Lime-green_arcade_token_icon_AB12CD34_2k.JPEG']){
+    assert.deepEqual(matchFlowDownload({...download,filename},image),{match:true,extension:'jpg'});
+  }
+  const shortened={...image,title:'Lime green arcade token icon with a star'};
+  assert.equal(matchFlowDownload({...download,filename:'Lime_green_arcade_token_icon_ab12cd34_2K.jpg'},shortened).match,true);
+});
+
+test('image-ID filenames retain title, asset, resolution, source, time, and MIME safeguards',()=>{
+  const image={...expected,mediaId:'ab12cd34-1234-4234-8234-123456789abc'};
+  const file={...download,filename:'Lime-green_arcade_token_icon_ab12cd34_2K.jpg'};
+  for(const change of [
+    {filename:file.filename.replace('ab12cd34','12345678')},
+    {filename:file.filename.replace('Lime-green','Other')},
+    {filename:file.filename.replace('_2K','_1K')},
+    {startTime:new Date(9000).toISOString()},
+    {startTime:new Date(expected.started+15*60*1000+1).toISOString()},
+    {referrerOrigin:null,sourceOrigin:'https://unrelated.example'},
+    {mime:'text/plain'},
+  ])assert.equal(matchFlowDownload({...file,...change},image).match,false);
+  for(const mediaId of [undefined,'not-an-asset-id','12345678-1234-4234-8234-123456789abc'])assert.equal(matchFlowDownload(file,{...image,mediaId}).match,false);
+});

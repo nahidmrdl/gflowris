@@ -59,7 +59,7 @@ const imageQueue=new ImageQueue({
     const marker=`${item.id}-${index+1}`;
     const completion=new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>{downloads.delete(marker);reject(new Error('Download timed out. Check Flow and Chrome Downloads.'));},15*60*1000);
-      downloads.set(marker,{resolve,reject,timer,folder:item.outputFolder,naming:{title:item.title,prompt:item.prompt,index,count:item.count},settled:false});
+      downloads.set(marker,{resolve,reject,timer,folder:item.outputFolder,naming:{title:item.title,prompt:item.prompt,index,count:item.count},mediaId:asset.mediaId,settled:false});
     });
     // Handle an early failure while the browser is still opening the download menu.
     completion.catch(()=>{});
@@ -95,7 +95,7 @@ export function command(type,payload={},timeout=20000,signal){
     pending.set(id,{resolve:value=>{cleanup();resolve(value);},reject:fail,timer});commands.push({id,type,payload});
   });
 }
-function publicState(){return {connected:Date.now()-lastSeen<10000,paired:!!extensionToken,pairCode:extensionToken?null:pairCode,settings:{...settings,outputFolderDisplay:displayOutputFolder(settings.outputFolder)},snapshot,capabilities,draftQueue:draftQueue.state,queue:imageQueue.state,postProcessing,postProgress,preparing:startingQueue,desktopOpen:Date.now()-desktopSeen<10000,focusRequest,downloadStatus:[...downloads.entries()].filter(([,value])=>!value.settled).map(([marker,value])=>({marker,expected:value.identity?{title:value.identity.title,resolution:value.identity.resolution}:null,lastCandidate:value.lastCandidate||null}))};}
+function publicState(){return {connected:Date.now()-lastSeen<10000,paired:!!extensionToken,pairCode:extensionToken?null:pairCode,settings:{...settings,outputFolderDisplay:displayOutputFolder(settings.outputFolder)},snapshot,capabilities,draftQueue:draftQueue.state,queue:imageQueue.state,postProcessing,postProgress,preparing:startingQueue,desktopOpen:Date.now()-desktopSeen<10000,focusRequest,downloadStatus:[...downloads.entries()].filter(([,value])=>!value.settled).map(([marker,value])=>({marker,expected:value.identity?{title:value.identity.title,resolution:value.identity.resolution,mediaId:value.identity.mediaId}:null,lastCandidate:value.lastCandidate||null}))};}
 const server=http.createServer(async(req,res)=>{
   let reserved=false;
   try{
@@ -147,7 +147,7 @@ const server=http.createServer(async(req,res)=>{
       const data=await body(req),waiting=downloads.get(data.marker);if(!waiting){reply(res,409,{error:'No active image is waiting for this download.'});return;}
       if(url.pathname==='/bridge/arm'){
         if(typeof data.title!=='string'||!data.title.trim()||data.title.length>500||!['1K','2K','4K'].includes(data.resolution)||!Number.isFinite(data.started))throw new Error('Invalid image download identity.');
-        waiting.identity={title:data.title,resolution:data.resolution,page:data.page,sourceOrigin:data.sourceOrigin,started:data.started};reply(res,200,{ok:true});
+        waiting.identity={title:data.title,resolution:data.resolution,mediaId:waiting.mediaId,page:data.page,sourceOrigin:data.sourceOrigin,started:data.started};reply(res,200,{ok:true});
       }else{const decision=matchFlowDownload(data.item,waiting.identity);waiting.lastCandidate={...decision,referrerOrigin:data.item.referrerOrigin,sourceOrigin:data.item.sourceOrigin};reply(res,200,decision);}
       return;
     }
